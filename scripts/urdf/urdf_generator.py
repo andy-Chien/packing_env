@@ -1,5 +1,8 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 # This is a script to generate URDF models for ROS simulation in rviz
-# Maintainer: Julian Gaal github.com/juliangaal
+# Maintainer: Andy Chien
 from ast import arg
 from importlib import import_module
 from operator import imod
@@ -10,7 +13,7 @@ import numpy as np
 import threading
 import queue
 import random
-from mesh.mesh_helper import MeshHelper
+from packing_env import MeshHelper
 
 class File:
     """Create XML file for ROS urdf model.
@@ -155,32 +158,34 @@ class URDFGenerateThread(threading.Thread):
         file_path = self.mesh_source_dir + mesh_file
         mesh = MeshHelper(file_path)
         # mesh.down_sampling()
-        mesh_length = mesh.get_max_length()
-        self.compute_random_range()
+        # mesh_length = mesh.get_max_length()
+        # self.compute_random_range()
         
-        for scale_indx in range(self.target_num):
-            target_length = np.random.uniform(low=self.random_ranges[scale_indx], high=self.random_ranges[scale_indx+1])
-            scaled_mesh = MeshHelper(mesh.scale_mesh(target_length / mesh_length))
-            if abs(target_length - scaled_mesh.get_max_length()) > 0.002:
-                print('!!!!!!!!!!!!!! Mesh scale fault !!!!!!!!!!!!!!!')
-                return
-            scaled_mesh_file = os.path.splitext(mesh_file)[0] + '_' + str(scale_indx) + os.path.splitext(mesh_file)[1]
-            self.urdf_generate(scaled_mesh, number, scaled_mesh_file)
+        # for scale_indx in range(self.target_num):
+        #     target_length = np.random.uniform(low=self.random_ranges[scale_indx], high=self.random_ranges[scale_indx+1])
+        #     scaled_mesh = MeshHelper(mesh.scale_mesh(target_length / mesh_length))
+        #     if abs(target_length - scaled_mesh.get_max_length()) > 0.002:
+        #         print('!!!!!!!!!!!!!! Mesh scale fault !!!!!!!!!!!!!!!')
+        #         return
+        #     scaled_mesh_file = os.path.splitext(mesh_file)[0] + '_' + str(scale_indx) + os.path.splitext(mesh_file)[1]
+        #     self.urdf_generate(scaled_mesh, number, scaled_mesh_file)
+        mesh.move_origin_to_center()
+        self.urdf_generate(mesh, number, mesh_file)
 
     def urdf_generate(self, mesh, number, mesh_file):
         mesh_path_for_urdf = self.mesh_dir_for_urdf + mesh_file
         urdf_path = self.package_path + '/urdf/'
         if mesh.calculate_mass_center_and_volume():
-            if mesh.volume < 0:
-                mesh.inverted_surface()
-                if not mesh.calculate_mass_center_and_volume():
-                    print('After inverted surface, mesh file {} is not watertight or not orientable, {} files are failure'.format(mesh_file[:10], count[1]))
-                    return
+            # if mesh.volume < 0:
+            #     mesh.inverted_surface()
+            #     if not mesh.calculate_mass_center_and_volume():
+            #         print('After inverted surface, mesh file {} is not watertight or not orientable, {} files are failure'.format(mesh_file[:10], count[1]))
+            #         return
 
             mesh.save_file(self.mesh_target_dir + mesh_file)
 
             rand_array = np.random.rand(4)
-            rand_array[3] = 0.9 + rand_array[3] / 10
+            rand_array[3] = 1
             rgba = str(rand_array).replace('[', '').replace(']', '')
             origin = str(mesh.origin).replace('[', '').replace(']', '')
             robot_name = os.path.splitext(mesh_file)[0]
@@ -203,8 +208,8 @@ class URDFGenerateThread(threading.Thread):
 
 
 THREADS = 6
-SOURCE_PATH = '/mesh/downsampling/' # berkeley_dateset
-TARGET_PATH = '/mesh/scaled/'
+SOURCE_PATH = '/mesh/' # berkeley_dateset
+TARGET_PATH = '/mesh/'
 PKG_NAME = 'objects_model'
 
 TARGET_SIZE = [0.06, 0.24]

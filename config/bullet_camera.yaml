@@ -1,0 +1,31 @@
+Azure_Kinect:
+    NFOV_UNBINNED:  
+        width: 640
+        height: 576
+        fov: 65
+        near_plane: 0.1
+        far_plane: 1
+    NFOV_2X2BINNED:  
+        width: 320
+        height: 288
+        fov: 65
+        near_plane: 0.1
+        far_plane: 1
+    WFOV_UNBINNED:  
+        width: 512
+        height: 512
+        fov: 120
+        near_plane: 0.1
+        far_plane: 1
+    WFOV_2X2BINNED:  
+        width: 1024
+        height: 1024
+        fov: 120
+        near_plane: 0.1
+        far_plane: 1
+Realsense_D405: 'tmp'
+Realsense_D435: 'tmp'
+Realsense_D455: 'tmp'
+Realsense_L515: 'tmp'
+    
+        

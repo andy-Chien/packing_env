@@ -82,6 +82,12 @@ class MeshHelper:
     def save_mesh_file(mesh, file_name):
         o3d.io.write_triangle_mesh(file_name, mesh)
 
+    def get_convex_hull(self):
+        return o3d.geometry.TriangleMesh(self.mesh).compute_convex_hull()[0]
+
+    def get_volume(self):
+        return self.mesh.get_volume()
+
     def show(self, stop=False):
         # o3d.visualization.draw(self.mesh, raw_mode=True, non_blocking_and_return_uid=True)
         # o3d.visualization.draw_geometries([self.mesh])
@@ -104,6 +110,13 @@ class MeshHelper:
     def scale_mesh(self, scale):
         center = self.mesh.get_center()
         return o3d.geometry.TriangleMesh(self.mesh).scale(scale, center)
+
+    def move_origin_to_center(self):
+        bounding_box = self.mesh.get_oriented_bounding_box()
+        max_bound = bounding_box.get_max_bound()
+        min_bound = bounding_box.get_min_bound()
+        center = (max_bound + min_bound) / 2
+        self.mesh = self.mesh.translate(center, False)
 
 
 if __name__ == '__main__':
