@@ -7,3 +7,12 @@ observation:
     width: 100
     high: 100
     views: 3
+
+reward:
+    nothing: 0
+
+conditions:
+    fill_rate:
+        value: 0.6
+        target: 0.9
+        rate: 1.01

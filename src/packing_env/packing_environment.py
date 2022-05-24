@@ -28,18 +28,21 @@ import numpy as np
 from packing_env import ModelManager, SimCameraManager
 
 class PackingEnvironmentEnv(py_environment.PyEnvironment):
-    def __init__(self, env_config):
-        a_cfg = env_config['action']
-        o_cfg = env_config['observation']
-        r_cfg = env_config['reward']
+    def __init__(self, env_config, model_manager, sim_camera_manager):
+        self.a_cfg = env_config['action']
+        self.o_cfg = env_config['observation']
+        self.r_cfg = env_config['reward']
+        self.c_cfg = env_config['conditions']
         self._action_spec = array_spec.BoundedArraySpec(
-            shape=(a_cfg['width'], a_cfg['high'], a_cfg['rotation'],), 
+            shape=(self.a_cfg['width'], self.a_cfg['high'], self.a_cfg['rotation'],), 
                    dtype=np.int32, minimum=0, maximum=1, name='action')
         self._observation_spec = array_spec.BoundedArraySpec(
-            shape=(o_cfg['width'], o_cfg['high'], o_cfg['views']), 
+            shape=(self.o_cfg['width'], self.o_cfg['high'], self.o_cfg['views']), 
                    dtype=np.int32, minimum=0, maximum=1, name='observation')
         self._state = 0
         self._episode_ended = False
+        self._model_manager = model_manager
+        self._sim_cam_manager = sim_camera_manager
 
     def action_spec(self):
         return self._action_spec
@@ -50,7 +53,11 @@ class PackingEnvironmentEnv(py_environment.PyEnvironment):
     def _reset(self):
         self._state = 0
         self._episode_ended = False
-        return ts.restart(np.array([self._state], dtype=np.int32))
+        self._condition_update()
+        bound = self._sample_packing_box()
+        self._model_list = self._model_manager.sample_models_in_bound(bound, self.c_cfg['fill_rate']['value'])
+        state = self._get_state()
+        return ts.restart(state)
 
     def _step(self, action):
 
@@ -74,3 +81,9 @@ class PackingEnvironmentEnv(py_environment.PyEnvironment):
         else:
             return ts.transition(
                 np.array([self._state], dtype=np.int32), reward=0.0, discount=1.0)
+
+    def _condition_update(self):
+        pass
+
+    def _sample_packing_box(self):
+        pass
