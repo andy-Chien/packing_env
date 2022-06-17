@@ -28,7 +28,7 @@ import numpy as np
 from packing_env import ModelManager, SimCameraManager
 
 class PackingEnvironmentEnv(py_environment.PyEnvironment):
-    def __init__(self, env_config, model_manager, sim_camera_manager):
+    def __init__(self, env_config, model_manager, camera_manager):
         self.a_cfg = env_config['action']
         self.o_cfg = env_config['observation']
         self.r_cfg = env_config['reward']
@@ -42,7 +42,7 @@ class PackingEnvironmentEnv(py_environment.PyEnvironment):
         self._state = 0
         self._episode_ended = False
         self._model_manager = model_manager
-        self._sim_cam_manager = sim_camera_manager
+        self.camera_manager = camera_manager
 
     def action_spec(self):
         return self._action_spec
@@ -56,7 +56,7 @@ class PackingEnvironmentEnv(py_environment.PyEnvironment):
         self._condition_update()
         bound = self._sample_packing_box()
         self._model_list = self._model_manager.sample_models_in_bound(bound, self.c_cfg['fill_rate']['value'])
-        state = self._get_state()
+        state = self.get_state()
         return ts.restart(state)
 
     def _step(self, action):
@@ -81,6 +81,10 @@ class PackingEnvironmentEnv(py_environment.PyEnvironment):
         else:
             return ts.transition(
                 np.array([self._state], dtype=np.int32), reward=0.0, discount=1.0)
+
+    def get_state(self):
+        rgb_img, depth_img = self.camera_manager.get_image()
+        return super().get_state()
 
     def _condition_update(self):
         pass

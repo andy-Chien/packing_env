@@ -1,29 +1,98 @@
-Azure_Kinect:
-    NFOV_UNBINNED:  
-        width: 640
-        height: 576
-        fov: 65
+Bullet_Camera:
+    TEST:
+        width: 512
+        height: 512
+        fov: 90
         near_plane: 0.1
         far_plane: 1
+        fx: 256
+        fy: 256
+        cx: 256
+        cy: 256
+
+Azure_Kinect:
+    NFOV_UNBINNED:  
+        width: 1280
+        height: 720
+        fov: 65
+        near_plane: 0.1
+        far_plane: 1.
+        fx: 606.886474609375
+        fy: 606.767700195312
+        cx: 639.003662109375
+        cy: 366.2392578125
     NFOV_2X2BINNED:  
         width: 320
         height: 288
         fov: 65
         near_plane: 0.1
-        far_plane: 1
+        far_plane: 1.
+        fx: 0.0
+        fy: 0.0
+        cx: 0.0
+        cy: 0.0
+    WFOV_UNBINNED:  
+        width: 1024
+        height: 1024
+        fov: 120
+        near_plane: 0.1
+        far_plane: 1.
+        fx: 0.0
+        fy: 0.0
+        cx: 0.0
+        cy: 0.0
+    WFOV_2X2BINNED:  
+        width: 512
+        height: 512
+        fov: 120
+        near_plane: 0.1
+        far_plane: 1.
+        fx: 0.0
+        fy: 0.0
+        cx: 0.0
+        cy: 0.0
+
+Realsense_D405:
+    NFOV_UNBINNED:  
+        width: 640
+        height: 576
+        fov: 65
+        near_plane: 0.1
+        far_plane: 1.
+        fx: 0.0
+        fy: 0.0
+        cx: 0.0
+        cy: 0.0
+    NFOV_2X2BINNED:  
+        width: 320
+        height: 288
+        fov: 65
+        near_plane: 0.1
+        far_plane: 1.
+        fx: 0.0
+        fy: 0.0
+        cx: 0.0
+        cy: 0.0
     WFOV_UNBINNED:  
         width: 512
         height: 512
         fov: 120
         near_plane: 0.1
-        far_plane: 1
+        far_plane: 1.
+        fx: 0.0
+        fy: 0.0
+        cx: 0.0
+        cy: 0.0
     WFOV_2X2BINNED:  
         width: 1024
         height: 1024
         fov: 120
         near_plane: 0.1
-        far_plane: 1
-Realsense_D405: 'tmp'
+        far_plane: 1.
+        fx: 0.0
+        fy: 0.0
+        cx: 0.0
+        cy: 0.0
 Realsense_D435: 'tmp'
 Realsense_D455: 'tmp'
 Realsense_L515: 'tmp'
