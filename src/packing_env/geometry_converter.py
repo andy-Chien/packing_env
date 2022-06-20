@@ -1,3 +1,4 @@
+from turtle import rt
 import open3d as o3d
 import numpy as np
 
@@ -21,6 +22,33 @@ class GeometryConverter:
         else:
             print('[GeometryConverter]: get_voxel_from_cloud only support o3d cloud')
             return None
+
+    def get_3_views_from_voxel(self, voxel, pixel_size, width, tar_center=[0, 0, 0], axis=[1, 1, 1]):
+        max_b, min_b = voxel.get_max_bound(), voxel.get_min_bound()
+        vl, img_l = np.linalg.norm(max_b - min_b), pow(2 * pow(pixel_size * width, 2), 0.5)
+        if vl > img_l:
+            print('[GeometryConverter]: Length of object is longer than target view')
+            return
+        vs, vo, tc = voxel.voxel_size, voxel.origin, np.array(tar_center, dtype=np.float32)
+        trans = -1 * tc + vo  + vs / 2
+        voxel_index_list = np.asarray([v.grid_index for v in voxel.get_voxels()], dtype=np.float32)
+        if len(voxel_index_list) < 1:
+            print('[GeometryConverter]: There are no points in voxel')
+            return
+        tar_size_voxel = ((voxel_index_list * vs + trans) / pixel_size).astype(np.int32)
+        view = []
+        for i, ax in enumerate([1 if x > 0 else -1 for x in axis]):
+            img = np.zeros([width, width], dtype=np.uint8)
+            for v in tar_size_voxel:
+                indx = [int(x + width / 2) for x in np.delete(v, i)]
+                if not all([0 <= x < width for x in indx]):
+                    continue
+                val_new = max(1, min(255, ax * (ax * width / 2 - v[i])))
+                val = img[indx[1], indx[0]]
+                if val_new < val or val == 0:
+                    img[indx[1], indx[0]] = val_new
+            view.append(img)
+        return view
 
     def merge_cloud(self, cloud_list):
         merged_points = np.concatenate([np.asarray(cloud.points) for cloud in cloud_list])

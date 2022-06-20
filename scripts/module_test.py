@@ -48,6 +48,13 @@ for eps in range(10):
         merged_cloud = gc.merge_cloud(cloud_list)
         voxel = gc.get_voxel_from_cloud(merged_cloud, voxel_size=0.002)
         gc.o3d_show(voxel)
+        pixel_size = 0.002
+        width = 128
+        tar_center = [0, 0, 1.3]
+        views = gc.get_3_views_from_voxel(voxel, pixel_size, width, tar_center)
+        # gc.o3d_show(o3d.geometry.Image(views[0]))
+        # gc.o3d_show(o3d.geometry.Image(views[1]))
+        # gc.o3d_show(o3d.geometry.Image(views[2]))
         model_manager.set_model_pos(model, [0,0,0.5])
         bh.step_simulation(100, realtime=False)
 
