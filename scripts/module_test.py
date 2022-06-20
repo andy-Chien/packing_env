@@ -36,18 +36,17 @@ if camera_manager.create_camera('cam_2', 'Bullet_Camera', 'TEST', \
 for eps in range(10):
     model_list = model_manager.sample_models_in_bound(box_bound, 0.8)
     for model in model_list:
+        t0 = time.time()
         pos = model_manager.random_pos(start_bound)
         quat = model_manager.random_quat()
         model_manager.load_model(model, pos, quat)
         cloud_list = []
         for cam in camera_list:
-            # t0 = time.time()
             cloud_list.append(camera_manager.get_point_cloud(cam))
-            # t1 = time.time()
             # time.sleep(0.3)
         merged_cloud = gc.merge_cloud(cloud_list)
         voxel = gc.get_voxel_from_cloud(merged_cloud, voxel_size=0.002)
-        gc.o3d_show(voxel)
+        # gc.o3d_show(voxel)
         pixel_size = 0.002
         width = 128
         tar_center = [0, 0, 1.3]
@@ -56,7 +55,9 @@ for eps in range(10):
         # gc.o3d_show(o3d.geometry.Image(views[1]))
         # gc.o3d_show(o3d.geometry.Image(views[2]))
         model_manager.set_model_pos(model, [0,0,0.5])
-        bh.step_simulation(100, realtime=False)
+        bh.step_simulation(240, realtime=False)
+        t1 = time.time()
+        print('time = {}'.format(t1-t0))
 
     bh.reset_all()
 
