@@ -4,7 +4,7 @@ from ast import arg
 from importlib import import_module
 from operator import imod
 from time import time, sleep
-import rospkg
+from ament_index_python.packages import get_package_share_directory
 import os
 import numpy as np
 import threading
@@ -19,7 +19,7 @@ class ConfigGenerateThread(threading.Thread):
         self.lock = lock
         self.count = count
         self.pkg_name = pkg_name
-        self.package_path = rospack.get_path(pkg_name)
+        self.package_path = get_package_share_directory(pkg_name)
         self.mesh_source_dir = self.package_path + source_path
         self.config_target_dir = self.package_path + target_path
         self.target_size = target_size
@@ -63,7 +63,7 @@ class ConfigGenerateThread(threading.Thread):
 
 
 THREADS = 6
-SOURCE_PATH = '/mesh/' # berkeley_dateset
+SOURCE_PATH = '/mesh/'
 TARGET_PATH = '/config/'
 PKG_NAME = 'objects_model'
 
@@ -71,8 +71,7 @@ TARGET_SIZE = [0.06, 0.24]
 TARGET_NUM = 3
 
 if __name__ == '__main__':
-    rospack = rospkg.RosPack()
-    package_path = rospack.get_path(PKG_NAME)
+    package_path = get_package_share_directory(PKG_NAME)
     mesh_path = package_path + SOURCE_PATH
     mesh_write_path = package_path + TARGET_PATH
     

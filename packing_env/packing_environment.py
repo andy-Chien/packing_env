@@ -23,7 +23,6 @@ import imp
 import pybullet as pb
 import time
 import pybullet_data
-import rospkg
 import numpy as np
 from packing_env import ModelManager, SimCameraManager
 

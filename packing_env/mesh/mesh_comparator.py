@@ -4,7 +4,7 @@ from ast import arg
 from importlib import import_module
 import re
 from time import time, sleep
-import rospkg
+from ament_index_python.packages import get_package_share_directory
 import os
 import numpy as np
 import threading
@@ -23,8 +23,7 @@ PKG_NAME = 'objects_model'
 if __name__ == '__main__':
     filedescriptors = termios.tcgetattr(sys.stdin)
     tty.setcbreak(sys.stdin)
-    rospack = rospkg.RosPack()
-    package_path = rospack.get_path(PKG_NAME)
+    package_path = get_package_share_directory(PKG_NAME)
     mesh_source_dir = package_path + SOURCE_PATH
     mesh_target_dir = package_path + TARGET_PATH
     

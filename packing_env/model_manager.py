@@ -11,13 +11,14 @@ class ModelManager():
         self.bh = bullet_handler
         self.model_path = model_path
         # pb.setAdditionalSearchPath(model_path + '/urdf/')
-        self.bh.set_model_path(model_path + '/urdf/')
+        self.bh.set_model_path(model_path + '/urdf')
         self.model_list = [os.path.splitext(file)[0] for file in os.listdir(model_path + '/config/') if file.endswith(r".yaml")]
         self.models = dict()
         for model_name in self.model_list:
             model = self.__model_config_loader(model_path + '/config/' + model_name + '.yaml')
             self.models = {**self.models, **model['object_model']}
         self.loaded_models = dict()
+        print('self.models len = {}, model_list len = {}'.format(len(self.models), len(self.model_list)))
         
     def __model_config_loader(self, path):
         with open(path, 'r') as stream:

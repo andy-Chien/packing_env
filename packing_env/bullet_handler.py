@@ -26,9 +26,11 @@ class BulletHandler:
         self.model_path.add(path)
         self.current_path = path
         pb.setAdditionalSearchPath(path)
+        print('[BulletHandler]: !!!!!!!!!!!!!!!!!!!path = {}'.format(path))
     
     def load_urdf(self, path, pos, quat):
         try:
+            print('[BulletHandler]: path = {}'.format(path))
             return pb.loadURDF(path, pos, quat)
         except:
             for p in self.model_path:

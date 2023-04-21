@@ -6,12 +6,13 @@ import pybullet as pb
 import open3d as o3d
 from random import choice as random_choice
 from yaml import safe_load as yaml_load
-from rospy import logerr
+from rclpy import logging
 
 class SimCameraManager():
     def __init__(self, config_path):
         self.camera_data = self.__config_loader(config_path)
         self.active_cameras = dict()
+        self.logger = logging.get_logger('sim_camera_manager')
         print(self.camera_data)
 
     def __config_loader(self, path):
@@ -32,7 +33,7 @@ class SimCameraManager():
             self.active_cameras[name] = cam
             return True
         else:
-            logerr('[SimCameraManager]: Camera model or type is wrong!')
+            self.logger.error('[SimCameraManager]: Camera model or type is wrong!')
             print('{} in {} is {}'.format(model, self.camera_data.keys(), model in self.camera_data.keys()))
             return False
 
@@ -46,7 +47,7 @@ class SimCameraManager():
             depth_image = far * near / (far - (far - near) * images[3])
             return (rgb_image, depth_image)
         else:
-            logerr('[SimCameraManager]: Camera does not exist!')
+            self.logger.error('[SimCameraManager]: Camera does not exist!')
             return None
 
     def get_point_cloud(self, name):
@@ -55,7 +56,7 @@ class SimCameraManager():
             cloud = self._depth_to_cloud(self.active_cameras[name], images[1])
             return cloud
         else:
-            logerr('[SimCameraManager]: Get image fail!')
+            self.logger.error('[SimCameraManager]: Get image fail!')
             return None
     
     def get_voxel_from_cloud(self, name):
@@ -64,7 +65,7 @@ class SimCameraManager():
             voxel = self._cloud_to_voxel(cloud)
             return voxel
         else:
-            logerr('[SimCameraManager]: Get cloud fail!')
+            self.logger.error('[SimCameraManager]: Get cloud fail!')
             return None
     
     def get_voxel_from_depth(self, name):
@@ -73,7 +74,7 @@ class SimCameraManager():
             voxel = self._depth_to_voxel(self.active_cameras[name], images[1])
             return voxel
         else:
-            logerr('[SimCameraManager]: Get image fail!')
+            self.logger.error('[SimCameraManager]: Get image fail!')
             return None
 
     def _depth_to_cloud(self, cam, depth_img):

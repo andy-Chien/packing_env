@@ -32,7 +32,7 @@ class MeshHelper:
             vv = self.mesh.get_volume()
             self.origin, self.volume = self.__calculate_mass_center_and_volume()
             # print("vv = {}, volume = {}".format(vv, self.volume))
-            self.mass = self.volume
+            self.mass = self.volume * 1000 # m3 to kg
             return True
         else:
             if not self.mesh.is_orientable():
