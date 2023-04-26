@@ -32,6 +32,7 @@ setup(
     entry_points={
         'console_scripts': [
             'module_test = packing_env.module_test:main',
+            'env_checker = packing_env.env_checker:main',
         ],
     },
 )
