@@ -18,6 +18,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
         (os.path.join('share', package_name, 'mesh'), glob('mesh/*.obj')),
+        (os.path.join('share', package_name, 'mesh'), glob('mesh/*.stl')),
     ],
     install_requires=['setuptools',
                       'numpy-quaternion',
@@ -33,6 +34,7 @@ setup(
         'console_scripts': [
             'module_test = packing_env.module_test:main',
             'env_checker = packing_env.env_checker:main',
+            'sac_train = packing_env.sac_train:main',
         ],
     },
 )

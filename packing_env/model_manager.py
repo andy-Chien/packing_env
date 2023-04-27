@@ -26,14 +26,14 @@ class ModelManager():
         return data
 
 
-    def sample_models_in_bound(self, bound, fill_rate):
+    def sample_models_in_bound(self, box_size, fill_rate):
         volume_sum = 0
         self.sampled_models_list = []
-        min_bound = np.array(bound[0])
-        max_bound = np.array(bound[1])
-        bound_size = np.absolute(max_bound - min_bound)
-        max_length = np.amax(bound_size)
-        bound_volume = np.prod(bound_size)
+        # min_bound = np.array(bound[0])
+        # max_bound = np.array(bound[1])
+        # bound_size = np.absolute(max_bound - min_bound)
+        max_length = np.amax(box_size)
+        bound_volume = np.prod(box_size)
         print('bound_volume = {}'.format(bound_volume))
         while volume_sum < bound_volume * fill_rate:
             model = random_choice(self.model_list)
