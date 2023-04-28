@@ -55,7 +55,7 @@ class PackingEnv(gym.Env):
             self.action_space = spaces.Box(0, 1, (3,))
 
         self.observation_space = spaces.Box(low=0, high=255,
-                                            shape=(3, self.img_width, self.img_width), dtype=np.uint8)
+                                            shape=(4, self.img_width, self.img_width), dtype=np.uint8)
         self.logger.info('__init__')
 
     def step(self, action):
@@ -100,30 +100,33 @@ class PackingEnv(gym.Env):
         self.box_pos = [-1.2*box_size[0]/2, -1.2*box_size[1]/2, 0.0]
         self.box_id = self.bh.load_stl('packing_box.stl', box_size, self.box_pos, [0, 0, 0, 1])
         self.bh.step_simulation(240, realtime=False)
-        time.sleep(1)
         self.logger.info('prepare_packing_box, id = {}'.format(self.box_id))
         return box_size
     
     def get_observation(self):
         self.logger.info('get_observation')
-        pixel_size = 0.005
+        pixel_size = 0.02
         box_cloud = self.cm.get_point_cloud('box_cam')
         box_voxel = self.gc.get_voxel_from_cloud(box_cloud, voxel_size=0.002)
         box_view = self.gc.get_view_from_voxel(box_voxel, pixel_size, self.img_width)
         obj_cloud_list = []
         relative_angle = np.pi / VIEWS_PER_OBJ
+        self.logger.info('get_observation 2')
         for _ in range(VIEWS_PER_OBJ):
             obj_cloud_list.append(self.cm.get_point_cloud('obj_cam'))
             self.mm.set_model_relative_euler(self.curr_model, [0, 0, relative_angle])
-
+        self.logger.info('get_observation 3')
         merged_cloud = self.gc.merge_cloud(obj_cloud_list)
         self.voxel = self.gc.get_voxel_from_cloud(merged_cloud, voxel_size=0.002)
+        self.logger.info('get_observation 4')
         tar_center = list((np.array(START_BOUND[0]) + np.array(START_BOUND[1])) / 2)
+        self.logger.info('get_observation 5')
         self.views = self.gc.get_3_views_from_voxel(self.voxel, pixel_size, self.img_width, tar_center)
-        self.views.append(box_view)
+        self.logger.info('get_observation 6')
+        self.views = np.append(self.views, np.expand_dims(box_view, axis=0), axis=0)
         
         self.logger.info('get_observation')
-        return self.observation_space.sample()
+        return self.views
 
     def reset(self):
         self.logger.info('reset')

@@ -63,19 +63,17 @@ class GeometryConverter:
             print('[GeometryConverter]: There are no points in voxel')
             return
         tar_size_voxel = ((voxel_index_list * vs + trans) / pixel_size).astype(np.int32)
-        view = []
+        views = np.zeros((3, width, width), dtype=np.uint8)
         for i, ax in enumerate([1 if x > 0 else -1 for x in axis]):
-            img = np.zeros([width, width], dtype=np.uint8)
             for v in tar_size_voxel:
                 indx = [int(x + width / 2) for x in np.delete(v, i)]
                 if not all([0 <= x < width for x in indx]):
                     continue
                 val_new = max(1, min(255, ax * (ax * width / 2 - v[i])))
-                val = img[indx[1], indx[0]]
+                val = views[i, indx[1], indx[0]]
                 if val_new < val or val == 0:
-                    img[indx[1], indx[0]] = val_new
-            view.append(img)
-        return view
+                    views[i, indx[1], indx[0]] = val_new
+        return views
 
     def merge_cloud(self, cloud_list):
         merged_points = np.concatenate([np.asarray(cloud.points) for cloud in cloud_list])

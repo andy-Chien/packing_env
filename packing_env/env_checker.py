@@ -7,7 +7,6 @@ def main():
     env = PackingEnv()
     # It will check your custom environment and output additional warnings if needed
     check_env(env)
-    time.sleep(10)
 
 if __name__ == '__main__':
     main()
