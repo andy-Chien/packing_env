@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pybullet as pb
+import quaternion as qtn
 from random import choice as random_choice
 from yaml import safe_load as yaml_load
 # from packing_env import BulletHandler
@@ -75,4 +76,20 @@ class ModelManager():
     def set_model_pose(self, model, pos, quat):
         # pb.resetBasePositionAndOrientation(self.loaded_models[model], pos, quat)
         self.bh.set_model_pose(self.loaded_models[model], pos, quat)
+
+    def set_model_relative_euler(self, model, euler_angle):
+        quat = pb.getQuaternionFromEuler(euler_angle)
+        self.set_model_relative_pose(model, [0,0,0], quat)
+
+    def set_model_relative_pose(self, model, pos, quat):
+        model_id = self.loaded_models[model]
+        curr_pos, curr_quat = self.bh.get_model_pose(model_id)
+        new_pos = [x + y for x, y in zip(curr_pos, pos)]
+        q0 = np.quaternion(curr_quat[3], curr_quat[0], curr_quat[1], curr_quat[2])
+        q1 = np.quaternion(quat[3], quat[0], quat[1], quat[2])
+        new_quat = list(qtn.as_float_array(q0 * q1))
+        self.bh.set_model_pose(model_id, new_pos, new_quat)
+
+    def get_model_pose(self, model):
+        return self.bh.get_model_pose(self.loaded_models[model])
 

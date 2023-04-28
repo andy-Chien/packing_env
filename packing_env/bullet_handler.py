@@ -70,6 +70,9 @@ class BulletHandler:
     def set_model_pose(self, model_id, pos, quat):
         pb.resetBasePositionAndOrientation(model_id, pos, quat)
 
+    def get_model_pose(self, model_id):
+        return pb.getBasePositionAndOrientation(model_id)
+
     def step_simulation(self, setp_cnt, realtime=False):
         for i in range (setp_cnt):
             pb.stepSimulation()

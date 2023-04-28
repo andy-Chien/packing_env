@@ -23,6 +23,33 @@ class GeometryConverter:
             print('[GeometryConverter]: get_voxel_from_cloud only support o3d cloud')
             return None
 
+    def get_view_from_voxel(self, voxel, pixel_size, width, tar_center=[0,0,0], axis='z'):
+        axis_map = {'x': 0, 'y':1, 'z':2, '-x': 0, '-y':1, '-z':2}
+        max_b, min_b = voxel.get_max_bound(), voxel.get_min_bound()
+        vl, img_l = np.linalg.norm(max_b - min_b), pow(2 * pow(pixel_size * width, 2), 0.5)
+        if vl > img_l:
+            print('[GeometryConverter]: Length of object is longer than target view')
+            return
+        vs, vo, tc = voxel.voxel_size, voxel.origin, np.array(tar_center, dtype=np.float32)
+        trans = -1 * tc + vo  + vs / 2
+        voxel_index_list = np.asarray([v.grid_index for v in voxel.get_voxels()], dtype=np.float32)
+        if len(voxel_index_list) < 1:
+            print('[GeometryConverter]: There are no points in voxel')
+            return
+        tar_size_voxel = ((voxel_index_list * vs + trans) / pixel_size).astype(np.int32)
+        view = np.zeros([width, width], dtype=np.uint8)
+        axis_indx = axis_map[axis]
+        ax = -1 if '-' in axis else 1
+        for v in tar_size_voxel:
+            indx = [int(x + width / 2) for x in np.delete(v, axis_indx)]
+            if not all([0 <= x < width for x in indx]):
+                continue
+            val_new = max(1, min(255, ax * (ax * width / 2 - v[axis_indx])))
+            val = view[indx[1], indx[0]]
+            if val_new < val or val == 0:
+                view[indx[1], indx[0]] = val_new
+        return view
+
     def get_3_views_from_voxel(self, voxel, pixel_size, width, tar_center=[0, 0, 0], axis=[1, 1, 1]):
         max_b, min_b = voxel.get_max_bound(), voxel.get_min_bound()
         vl, img_l = np.linalg.norm(max_b - min_b), pow(2 * pow(pixel_size * width, 2), 0.5)
