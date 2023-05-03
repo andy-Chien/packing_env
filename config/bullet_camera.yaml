@@ -1,10 +1,21 @@
 Bullet_Camera:
-    TEST:
+    OBJ_CAM:
         width: 512
         height: 512
         fov: 90
         near_plane: 0.1
         far_plane: 1
+        fx: 256
+        fy: 256
+        cx: 256
+        cy: 256
+
+    BOX_CAM:
+        width: 512
+        height: 512
+        fov: 90
+        near_plane: 0.1
+        far_plane: 0.5
         fx: 256
         fy: 256
         cx: 256

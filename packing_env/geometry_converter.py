@@ -81,6 +81,15 @@ class GeometryConverter:
         merged_cloud = o3d.geometry.PointCloud(o3d_points)
         return merged_cloud
 
+    def cloud_rotate_euler(self, cloud, euler, center=None):
+        rot_mat = o3d.geometry.get_rotation_matrix_from_xyz(np.asarray(np.array(euler).reshape(3, 1)))
+        print('===============================================')
+        print(rot_mat)
+        print('===============================================')
+        if center is not None:
+            return cloud.rotate(rot_mat, np.reshape(center, (3,1)))
+        return cloud.rotate(rot_mat)
+
     def o3d_show(self, o3d_obj):
         o3d.visualization.draw_geometries([o3d_obj], window_name='Open3D', width=1920, height=1080, \
             left=50, top=50, point_show_normal=False, mesh_show_wireframe=False, mesh_show_back_face=False)

@@ -62,6 +62,7 @@ class ModelManager():
     def load_model(self, model, pos, quat):
         # self.loaded_models[model] = pb.loadURDF(model + '.urdf', pos, quat)
         self.loaded_models[model] = self.bh.load_urdf(model + '.urdf', pos, quat)
+        self.set_model_pose(model, pos, quat)
 
     def random_pos(self, bound):
         return np.random.uniform(low=bound[0], high=bound[1])
@@ -79,6 +80,7 @@ class ModelManager():
 
     def set_model_relative_euler(self, model, euler_angle):
         quat = pb.getQuaternionFromEuler(euler_angle)
+        print("quat = {}".format(quat))
         self.set_model_relative_pose(model, [0,0,0], quat)
 
     def set_model_relative_pose(self, model, pos, quat):
@@ -87,7 +89,9 @@ class ModelManager():
         new_pos = [x + y for x, y in zip(curr_pos, pos)]
         q0 = np.quaternion(curr_quat[3], curr_quat[0], curr_quat[1], curr_quat[2])
         q1 = np.quaternion(quat[3], quat[0], quat[1], quat[2])
-        new_quat = list(qtn.as_float_array(q0 * q1))
+        q = list(qtn.as_float_array(q1 * q0))
+        new_quat = [q[1], q[2], q[3], q[0]]
+        print("new_pos = {}".format(new_pos))
         self.bh.set_model_pose(model_id, new_pos, new_quat)
 
     def get_model_pose(self, model):

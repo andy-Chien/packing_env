@@ -30,6 +30,9 @@ class SimCameraManager():
             cam['intrinsic'] = o3d.camera.PinholeCameraIntrinsic(width=cam['width'], height=cam['height'], \
                                                     fx=cam['fx'], fy=cam['fy'], cx=cam['cx'], cy=cam['cy'])
             cam['extrinsic'] = self._compute_extrinsic(pos, target_pos, up_vec)
+            print('====================cam[extrinsic]========================')
+            print(cam['extrinsic'])
+            print('====================cam[extrinsic]========================')
             self.active_cameras[name] = cam
             return True
         else:
@@ -76,12 +79,21 @@ class SimCameraManager():
         else:
             self.logger.error('[SimCameraManager]: Get image fail!')
             return None
+        
+    def get_extrinsic(self, name):
+        return self.active_cameras[name]['extrinsic']
 
     def _depth_to_cloud(self, cam, depth_img):
         o3d_depth_img = o3d.geometry.Image(np.array(depth_img * 1000, dtype=np.uint16))
-        depth_trunc = cam['far_plane'] - 0.1
-        cloud = o3d.geometry.PointCloud.create_from_depth_image(o3d_depth_img, cam['intrinsic'], cam['extrinsic'], \
-                                                                depth_scale=1000.0, depth_trunc=depth_trunc, stride=1)
+        print('size = {}'.format(len(np.asarray(o3d_depth_img))))
+        print(np.asarray(depth_img))
+        depth_trunc = cam['far_plane'] - 0.01
+        # cloud = o3d.geometry.PointCloud.create_from_depth_image(o3d_depth_img, cam['intrinsic'], cam['extrinsic'], \
+        #                                                         depth_scale=1000.0, depth_trunc=depth_trunc, stride=1)
+        cloud = o3d.geometry.PointCloud.create_from_depth_image(
+            o3d_depth_img, cam['intrinsic'], depth_scale=1000.0,
+            depth_trunc=depth_trunc, stride=1
+        )
         return cloud
 
     def _cloud_to_voxel(self, cloud):
@@ -100,13 +112,13 @@ class SimCameraManager():
         return voxel
 
     def _compute_extrinsic(self, pos, target_pos, up_vec):
-        c2w = np.identity(4)
-        c2w[:3, 3] = pos
+        w2c = np.identity(4)
+        w2c[:3, 3] = pos
         vec_z = np.array(target_pos) - np.array(pos)
-        c2w[:3, 2] = vec_z / np.linalg.norm(vec_z)
-        vec = -1 * np.array(up_vec)
-        vec_y = vec - np.dot(vec, vec_z) * vec_z
-        c2w[:3, 1] = vec_y / np.linalg.norm(vec_y)
+        w2c[:3, 2] = vec_z / np.linalg.norm(vec_z)
+        vec_y = -1 * np.array(up_vec)
+        # vec_y = vec - np.dot(vec, vec_z) * vec_z
+        w2c[:3, 1] = vec_y / np.linalg.norm(vec_y)
         vec_x = np.cross(vec_y, vec_z)
-        c2w[:3, 0] = vec_x / np.linalg.norm(vec_x)
-        return np.linalg.inv(c2w)
+        w2c[:3, 0] = vec_x / np.linalg.norm(vec_x)
+        return w2c # np.linalg.inv(w2c)
