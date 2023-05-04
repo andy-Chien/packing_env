@@ -86,7 +86,7 @@ class SimCameraManager():
     def _depth_to_cloud(self, cam, depth_img):
         o3d_depth_img = o3d.geometry.Image(np.array(depth_img * 1000, dtype=np.uint16))
         print('size = {}'.format(len(np.asarray(o3d_depth_img))))
-        print(np.asarray(depth_img))
+        # print(np.asarray(depth_img))
         depth_trunc = cam['far_plane'] - 0.01
         # cloud = o3d.geometry.PointCloud.create_from_depth_image(o3d_depth_img, cam['intrinsic'], cam['extrinsic'], \
         #                                                         depth_scale=1000.0, depth_trunc=depth_trunc, stride=1)

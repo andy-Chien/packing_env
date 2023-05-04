@@ -72,6 +72,9 @@ class BulletHandler:
 
     def get_model_pose(self, model_id):
         return pb.getBasePositionAndOrientation(model_id)
+    
+    def remove_model(self, model_id):
+        return pb.removeBody(model_id)
 
     def step_simulation(self, setp_cnt, realtime=False):
         for i in range (setp_cnt):

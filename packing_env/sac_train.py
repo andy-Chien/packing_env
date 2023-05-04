@@ -12,7 +12,7 @@ def main():
     # and performs 2 gradient steps per call to `ènv.step()`
     # if gradient_steps=-1, then we would do 4 gradients steps per call to `ènv.step()`
     model = SAC("MlpPolicy", env, train_freq=1, gradient_steps=2, verbose=1)
-    model.learn(total_timesteps=10_000)
+    model.learn(total_timesteps=50_000)
 
     obs = env.reset()
     for _ in range(1000):

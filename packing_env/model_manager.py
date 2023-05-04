@@ -78,6 +78,10 @@ class ModelManager():
         # pb.resetBasePositionAndOrientation(self.loaded_models[model], pos, quat)
         self.bh.set_model_pose(self.loaded_models[model], pos, quat)
 
+    def set_model_pos_rz(self, model, pos, rz):
+        quat = pb.getQuaternionFromEuler([0, 0, rz])
+        self.bh.set_model_pose(self.loaded_models[model], pos, quat)
+
     def set_model_relative_euler(self, model, euler_angle):
         quat = pb.getQuaternionFromEuler(euler_angle)
         print("quat = {}".format(quat))
@@ -96,4 +100,13 @@ class ModelManager():
 
     def get_model_pose(self, model):
         return self.bh.get_model_pose(self.loaded_models[model])
+    
+    def get_model_id(self, model):
+        return self.loaded_models[model]
+    
+    def remove_model(self, model):
+        return self.bh.remove_model(self.loaded_models[model])
+    
+    def get_model_convex_volume(self, model):
+        return self.models[model]['convex_volume']
 
