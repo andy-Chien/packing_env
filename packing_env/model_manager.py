@@ -39,7 +39,7 @@ class ModelManager():
         while volume_sum < bound_volume * fill_rate:
             model = random_choice(self.model_list)
             if self.models[model]['max_length'] < max_length \
-                and volume_sum + self.models[model]['convex_volume'] < bound_volume * fill_rate * 1.1 \
+                and volume_sum + self.models[model]['convex_volume'] < min(bound_volume * fill_rate * 1.2, bound_volume) \
                 and self.models[model]['convex_volume'] > bound_volume * 0.05:
                 volume_sum += self.models[model]['convex_volume']
                 self.sampled_models_list.append(model)
