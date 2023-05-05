@@ -33,13 +33,14 @@ class ModelManager():
         # min_bound = np.array(bound[0])
         # max_bound = np.array(bound[1])
         # bound_size = np.absolute(max_bound - min_bound)
-        max_length = np.amax(box_size)
+        max_length = np.amax(box_size[:2])
         bound_volume = np.prod(box_size)
         print('bound_volume = {}'.format(bound_volume))
         while volume_sum < bound_volume * fill_rate:
             model = random_choice(self.model_list)
             if self.models[model]['max_length'] < max_length \
-                and volume_sum + self.models[model]['convex_volume'] < bound_volume:
+                and volume_sum + self.models[model]['convex_volume'] < bound_volume * fill_rate * 1.1 \
+                and self.models[model]['convex_volume'] > bound_volume * 0.05:
                 volume_sum += self.models[model]['convex_volume']
                 self.sampled_models_list.append(model)
         return self.sampled_models_list
@@ -84,7 +85,6 @@ class ModelManager():
 
     def set_model_relative_euler(self, model, euler_angle):
         quat = pb.getQuaternionFromEuler(euler_angle)
-        print("quat = {}".format(quat))
         self.set_model_relative_pose(model, [0,0,0], quat)
 
     def set_model_relative_pose(self, model, pos, quat):
@@ -95,7 +95,6 @@ class ModelManager():
         q1 = np.quaternion(quat[3], quat[0], quat[1], quat[2])
         q = list(qtn.as_float_array(q1 * q0))
         new_quat = [q[1], q[2], q[3], q[0]]
-        print("new_pos = {}".format(new_pos))
         self.bh.set_model_pose(model_id, new_pos, new_quat)
 
     def get_model_pose(self, model):

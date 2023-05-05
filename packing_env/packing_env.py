@@ -10,7 +10,7 @@ from ament_index_python.packages import get_package_share_directory
 from packing_env import ModelManager, SimCameraManager, BulletHandler, GeometryConverter
 # np.set_printoptions(threshold=np.inf)
 
-SHOE_IMG = False
+SHOW_IMG = False
 
 MODEL_PKG = 'objects_model'
 THIS_PKG = 'packing_env'
@@ -19,6 +19,7 @@ START_BOUND = [[0, 0, 1.25], [0, 0, 1.35]]
 
 VIEWS_PER_OBJ = 3
 CAPTURE_POS = [0, 0, 1.3]
+NUM_TO_CALC_SUCCESS_RATE = 100
 
 
 class PackingEnv(gym.Env):
@@ -35,13 +36,10 @@ class PackingEnv(gym.Env):
             xy_action_space: int = 64,
             rot_action_space: int = 72,
         ):
-        self.logger.info('__init__')
         super().__init__()
         model_path = get_package_share_directory(MODEL_PKG)
         camera_config_path = get_package_share_directory(THIS_PKG) + '/config/bullet_camera.yaml'
-
         self.img_width = img_width
-        self.done = False
         self.bh = BulletHandler()
         self.gc = GeometryConverter()
         self.mm = ModelManager(model_path, self.bh)
@@ -62,159 +60,211 @@ class PackingEnv(gym.Env):
 
         self.observation_space = spaces.Box(low=0, high=255,
                                             shape=(4, self.img_width, self.img_width), dtype=np.uint8)
-        self.logger.info('__init__')
+        self.success_buffer = []
+        self.reward_buffer = []
+        self.box_fill_rate = 0.3
+        self.center_xy = [0, 0]
 
     def step(self, action):
-        self.logger.info('step, action = {}'.format(action))
         action = self.decode_action(action)
-        self.mm.set_model_pos(self.curr_model, [action[0], action[1], 0.35])
+        z = self.compute_place_z(action)
+        self.mm.set_model_pos(self.curr_model, [action[0], action[1], z])
         self.mm.set_model_relative_euler(self.curr_model, [0, 0, action[2]])
         self.bh.step_simulation(240, realtime=False)
         self.bh.set_model_pose(self.box_id, self.box_pos, [0,0,0,1])
         self.bh.step_simulation(60, realtime=False)
 
         obj_volume = self.mm.get_model_convex_volume(self.curr_model)
-        reward = self._compute_reward()
-        done = self.is_done()
 
-        obs = None
-        while self.obj_in_queue() and obs is None:
-            model = self.prepare_objects()
-            obs = self.get_observation(model)
-
-        if (not self.obj_in_queue()) or obs is None:
-            self.mm.remove_model(model)
-            reward = self._compute_reward()
-            done = self.is_done()
-        else:
-            self.curr_model = model
-
+        done = self._check_success()
+        
         if not done:
             self.volume_sum += obj_volume
         
+        reward = self._compute_reward()
+
+        obs = None
+        model = None
+        while self.obj_in_queue() and obs is None and not done:
+            model = self.prepare_objects()
+            obs = self.get_observation(model)
+            if obs is None:
+                self.mm.remove_model(model)
+
+
+        if model is not None and obs is not None:
+            self.curr_model = model
+        elif not done:
+            done = self._check_success()
+            reward = self._compute_reward()
+
+        if done and len(self.success_buffer) == NUM_TO_CALC_SUCCESS_RATE:
+            success_rate = sum(self.success_buffer) / NUM_TO_CALC_SUCCESS_RATE
+            avg_reward = sum(self.reward_buffer) / NUM_TO_CALC_SUCCESS_RATE
+            self.logger.info('success rate = {}, avg reward = {}'.format(success_rate, avg_reward))
+            if success_rate > 0.7:
+                self.box_fill_rate *= 1.01
+            elif success_rate < 0.5:
+                self.box_fill_rate *= 0.99
+
+        
         info = {'info': 'hello'}
 
-        self.logger.info('step')
         return obs, reward, done, info
     
     def decode_action(self, action):
         if isinstance(self.action_space, spaces.Box):
-            action[0] *= self.box_size[0] / 2
-            action[1] *= self.box_size[1] / 2 # 2 because [-1, 1]
+            action[0] = action[0] * self.box_size[0] / 2 + self.center_xy[0]
+            action[1] = action[1] * self.box_size[1] / 2 + self.center_xy[1] # 2 because [-1, 1]
             action[2] *= np.pi
         elif isinstance(self.action_space, spaces.MultiDiscrete):
-            action[0] *= self.box_size[0] / self.xy_action_space
-            action[1] *= self.box_size[1] / self.xy_action_space
+            action[0] = action[0] * self.box_size[0] / self.xy_action_space + self.center_xy[0]
+            action[1] = action[1] * self.box_size[1] / self.xy_action_space + self.center_xy[1]
             action[2] *= np.pi / self.rot_action_space
         return action
+    
+    def compute_place_z(self, action):
+        index_x = int(-1 * (action[1] - self.center_xy[1]) / self.pixel_size + self.img_width / 2)
+        index_y = int(-1 * (action[0] - self.center_xy[0]) / self.pixel_size + self.img_width / 2)
+        obj_bottom_view = self.obj_views[2]
+        obj_bv_transpose = np.array(obj_bottom_view).transpose()
+        x_min, y_min, x_max, y_max = 0, 0, self.img_width, self.img_width
+        for i in range(self.img_width):
+            if x_min == 0 and any(obj_bottom_view[i]):
+                x_min = i
+                break
+        for i in reversed(range(self.img_width)):
+            if x_max == self.img_width and any(obj_bottom_view[i]):
+                x_max = i
+                break
+        for i in range(self.img_width):
+            if y_min == 0 and any(obj_bv_transpose[i]):
+                y_min = i
+                break
+        for i in reversed(range(self.img_width)):
+            if y_max == self.img_width and any(obj_bv_transpose[i]):
+                y_max = i
+                break
+
+        x_range = int((x_max - x_min) / 2)
+        y_range = int((y_max - y_min) / 2)
+        indx_x_min, indx_x_max = max(0, index_x - x_range), min(self.img_width, index_x + x_range)
+        indx_y_min, indx_y_max = max(0, index_y - y_range), min(self.img_width, index_y + y_range)
+        depth_min = 999
+        for i in range(indx_x_min, indx_x_max):
+            for j in range(indx_y_min, indx_y_max):
+                depth = self.box_view[i][j]
+                if depth < depth_min:
+                    depth_min = depth
+        z = self.box_size[2] - depth_min * self.pixel_size
+        self.logger.info('depth_min = {}, z = {}, x_range = {}, y_range = {}'.format(depth_min, z, x_range, y_range))
+        obj_front_view = self.obj_views[0]
+        for i in reversed(range(len(obj_front_view))):
+            if any(obj_front_view[i]):
+                z += max(0, (i - self.img_width / 2)) * self.pixel_size # assume midle of img is midle of obj
+                break
+        z += 0.1
+        self.logger.info('depth_min = {}, z = {}'.format(depth_min, z))
+        return z
+        
     
     def obj_in_queue(self):
         return self.model_indx < len(self.model_list)
 
     def is_done(self):
-        return self.done
-
-    def _compute_reward(self):
+        return self.success or self.failed
+    
+    def _check_success(self):
         obj_pos, _ = self.mm.get_model_pose(self.curr_model)
         if obj_pos[0] > self.box_size[0] / 2 or \
                 obj_pos[0] < -1 * self.box_size[0] / 2 or \
                 obj_pos[1] > self.box_size[1] / 2 or \
                 obj_pos[1] < -1 * self.box_size[1] / 2 or \
                 obj_pos[2] > self.box_size[2]:
-            self.done = True
-            r = -1 + self.volume_sum / self.box_volume
-        
+            self.failed = True
+            self.success_buffer.append(0)
         elif not self.obj_in_queue():
-            self.done = True
+            self.success = True
+            self.success_buffer.append(1)
+
+        if len(self.success_buffer) > NUM_TO_CALC_SUCCESS_RATE:
+            self.success_buffer.pop(0)
+
+        return self.is_done()
+
+    def _compute_reward(self):
+        if self.failed:
+            r = -1 + self.volume_sum / self.box_volume
+            self.reward_buffer.append(r)
+        elif self.success:
             r = 1
+            self.reward_buffer.append(r)
         else:
-            self.done = False
             r = 0
+        if len(self.reward_buffer) > NUM_TO_CALC_SUCCESS_RATE:
+            self.reward_buffer.pop(0)
         return r
 
     def prepare_objects(self):
-        self.logger.info('prepare_objects')
         pos = self.mm.random_pos(START_BOUND)
         quat = self.mm.random_quat()
         # quat = [0, 0, 0, 1]
         curr_model = self.model_list[self.model_indx]
         self.mm.load_model(curr_model, pos, quat)
         self.model_indx += 1
-        self.logger.info('prepare_objects, pos = {}'.format(pos))
         return curr_model
 
     def prepare_packing_box(self):
-        self.logger.info('prepare_packing_box')
         box_size = np.random.uniform(BOX_BOUND[0], BOX_BOUND[1])
         box_pos = [-1.2*box_size[0]/2, -1.2*box_size[1]/2, 0.0]
         box_id = self.bh.load_stl('packing_box.stl', box_size, box_pos, [0, 0, 0, 1])
-        self.logger.info('prepare_packing_box, id = {}'.format(box_id))
         return box_size, box_pos, box_id
     
     def get_observation(self, model):
-        self.logger.info('get_observation')
         box_cloud = self.cm.get_point_cloud('box_cam')
         box_cloud = box_cloud.transform(self.cm.get_extrinsic('box_cam'))
-        # self.gc.o3d_show(box_cloud)
         box_voxel = self.gc.get_voxel_from_cloud(box_cloud, voxel_size=0.002)
-        t0 = time.time()
-        tar_center = [0, 0, self.box_size[2]]
-        box_view = self.gc.get_view_from_voxel(box_voxel, self.pixel_size, self.img_width, tar_center, self.bound_size, '-z')
-        if box_view is None:
+        tar_center = [self.center_xy[0], self.center_xy[1], self.box_size[2]]
+        self.box_view = self.gc.get_view_from_voxel(box_voxel, self.pixel_size, self.img_width, tar_center, self.bound_size, '-z')
+        if self.box_view is None:
             return None
-        print(box_view)
-        if SHOE_IMG:
-            plt.imshow(box_view, cmap='gray', vmin=0, vmax=255)
+        if SHOW_IMG:
+            plt.imshow(self.box_view, cmap='gray', vmin=0, vmax=255)
             plt.show()
-        t1 = time.time()
-        # time.sleep(2)
-        self.logger.info('get_view_from_voxel spend {} s. size = {}'.format(t1-t0, len(box_cloud.points)))
         obj_cloud_list = []
         relative_angle = 2 * np.pi / VIEWS_PER_OBJ
         curr_angle = 0.0
-        self.logger.info('get_observation 2')
         for i in range(VIEWS_PER_OBJ):
             cloud = self.cm.get_point_cloud('obj_cam')
-            print('point cloud center 1 = {}'.format(cloud.get_center()))
             cloud = cloud.transform(self.cm.get_extrinsic('obj_cam'))
-            print('point cloud center 2 = {}'.format(cloud.get_center()))
             if i > 0:
                 cloud = self.gc.cloud_rotate_euler(cloud, [0, 0, curr_angle], CAPTURE_POS)
             obj_cloud_list.append(cloud)
             curr_angle -= relative_angle
             self.mm.set_model_relative_euler(model, [0, 0, relative_angle])
             # time.sleep(1)
-        self.logger.info('get_observation 3')
         merged_cloud = self.gc.merge_cloud(obj_cloud_list)
         if len(merged_cloud.points) < 100:
             return None
-        self.logger.info('merge_cloud size = {}'.format(len(merged_cloud.points)))
-        self.logger.info('merge_cloud remove_non_finite_points size = {}'.format(len(merged_cloud.points)))
         self.voxel = self.gc.get_voxel_from_cloud(merged_cloud, voxel_size=0.002)
-        self.logger.info('get_observation 4')
         tar_center = list((np.array(START_BOUND[0]) + np.array(START_BOUND[1])) / 2)
-        self.logger.info('get_observation 5')
-        t0 = time.time()
-        self.views = self.gc.get_3_views_from_voxel(self.voxel, self.pixel_size, self.img_width, tar_center, self.bound_size)
-        if self.views is None:
+        self.obj_views = self.gc.get_3_views_from_voxel(self.voxel, self.pixel_size, self.img_width, tar_center, self.bound_size)
+        if self.obj_views is None:
             return None
-        if SHOE_IMG:
-            plt.imshow(self.views[0], cmap='gray', vmin=0, vmax=255)
+        if SHOW_IMG:
+            plt.imshow(self.obj_views[0], cmap='gray', vmin=0, vmax=255)
             plt.show()
-            plt.imshow(self.views[1], cmap='gray', vmin=0, vmax=255)
+            plt.imshow(self.obj_views[1], cmap='gray', vmin=0, vmax=255)
             plt.show()
-            plt.imshow(self.views[2], cmap='gray', vmin=0, vmax=255)
+            plt.imshow(self.obj_views[2], cmap='gray', vmin=0, vmax=255)
             plt.show()
-        t1 = time.time()
-        self.logger.info('get_3_views_from_voxel spend {} s. size = {}'.format(t1-t0, len(merged_cloud.points)))
-        self.logger.info('get_observation 6')
-        self.views = np.append(self.views, np.expand_dims(box_view, axis=0), axis=0)
+        self.obj_views = np.append(self.obj_views, np.expand_dims(self.box_view, axis=0), axis=0)
         
-        self.logger.info('get_observation')
-        return self.views
+        return self.obj_views
 
     def reset(self):
-        self.logger.info('reset')
+        self.success = False
+        self.failed = False
         self.bh.reset_all()
         self.box_size, self.box_pos, self.box_id = self.prepare_packing_box()
         self.box_volume = self.box_size[0] * self.box_size[1] * self.box_size[2]
@@ -222,21 +272,18 @@ class PackingEnv(gym.Env):
         self.pixel_size = self.bound_size / self.img_width
         self.volume_sum = 0
         self.model_indx = 0
-        self.model_list = self.mm.sample_models_in_bound(self.box_size, 0.5)
+        self.model_list = self.mm.sample_models_in_bound(self.box_size, self.box_fill_rate)
         self.bh.step_simulation(60, realtime=False)
         self.curr_model = self.prepare_objects()
-        self.logger.info('reset')
         obs = self.get_observation(self.curr_model)
         if obs is None:
             return self.reset()
         return obs
 
     def render(self, mode="human"):
-        self.logger.info('render')
         self.gc.o3d_show(self.voxel)
-        for view in self.views:
+        for view in self.obj_views:
             self.gc.o3d_show(o3d.geometry.Image(view))
-        self.logger.info('render')
 
     def close(self):
         ...
