@@ -66,6 +66,13 @@ class BulletHandler:
                     print('[BulletHandler]: Try another path')
             print('[BulletHandler]: STL load failed')
             return -1
+        
+    def create_box(self, box_size, pos, quat, mass=1):
+        half_extents = np.array(box_size) / 2
+        coll_id = pb.createCollisionShape(shapeType=pb.GEOM_BOX, halfExtents=half_extents)
+        vis_id = pb.createVisualShape(shapeType=pb.GEOM_BOX, halfExtents=half_extents)
+        model_id = pb.createMultiBody(mass, coll_id, vis_id, pos, quat)
+        return model_id
 
     def set_model_pose(self, model_id, pos, quat):
         pb.resetBasePositionAndOrientation(model_id, pos, quat)

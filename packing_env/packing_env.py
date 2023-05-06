@@ -64,6 +64,7 @@ class PackingEnv(gym.Env):
         self.reward_buffer = []
         self.box_fill_rate = 0.3
         self.center_xy = [0, 0]
+        self.eps_cnt = 0
 
     def step(self, action):
         action = self.decode_action(action)
@@ -99,9 +100,10 @@ class PackingEnv(gym.Env):
             reward = self._compute_reward()
 
         if done and len(self.success_buffer) == NUM_TO_CALC_SUCCESS_RATE:
+            self.eps_cnt += 1
             success_rate = sum(self.success_buffer) / NUM_TO_CALC_SUCCESS_RATE
             avg_reward = sum(self.reward_buffer) / NUM_TO_CALC_SUCCESS_RATE
-            self.logger.info('success rate = {}, avg reward = {}'.format(success_rate, avg_reward))
+            self.logger.info('eps: {}, success rate = {}, avg reward = {}'.format(self.eps_cnt, success_rate, avg_reward))
             if success_rate > 0.7:
                 self.box_fill_rate *= 1.01
             elif success_rate < 0.5:
@@ -266,6 +268,7 @@ class PackingEnv(gym.Env):
         self.success = False
         self.failed = False
         self.bh.reset_all()
+        self.mm.reset()
         self.box_size, self.box_pos, self.box_id = self.prepare_packing_box()
         self.box_volume = self.box_size[0] * self.box_size[1] * self.box_size[2]
         self.bound_size = max(self.box_size) + 0.1
