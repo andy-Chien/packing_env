@@ -30,6 +30,7 @@ class ModelManager():
     def sample_models_in_bound(self, box_size, fill_rate, min_size_rate=0.05, excess_tolerace=1.2):
         volume_sum = 0
         box_obj_cnt = 0
+        failed_cnt = 0
         self.sampled_models_list = []
         # min_bound = np.array(bound[0])
         # max_bound = np.array(bound[1])
@@ -37,15 +38,20 @@ class ModelManager():
         max_length = np.amax(box_size[:2])
         bound_volume = np.prod(box_size)
         print('bound_volume = {}'.format(bound_volume))
-        while volume_sum < bound_volume * fill_rate:
+        while volume_sum < bound_volume * fill_rate and failed_cnt < 100:
             if random_choice([True, False]):
-                model = random_choice(self.model_list)
-                if self.models[model]['max_length'] < max_length \
-                        and volume_sum + self.models[model]['convex_volume'] \
-                        < min(bound_volume * fill_rate * excess_tolerace, bound_volume) \
-                        and self.models[model]['convex_volume'] > bound_volume * min_size_rate:
-                    volume_sum += self.models[model]['convex_volume']
-                    self.sampled_models_list.append(model)
+                for _ in range(10):
+                    model = random_choice(self.model_list)
+                    if self.models[model]['max_length'] < max_length \
+                            and volume_sum + self.models[model]['convex_volume'] \
+                            < min(bound_volume * fill_rate * excess_tolerace, bound_volume) \
+                            and self.models[model]['convex_volume'] > bound_volume * min_size_rate:
+                        volume_sum += self.models[model]['convex_volume']
+                        self.sampled_models_list.append(model)
+                        failed_cnt = 0
+                        break
+                    else:
+                        failed_cnt += 1
             else:
                 min_len = ((bound_volume * min_size_rate) ** (1 / 3)) / 2 
                 box_obj_size = np.random.uniform([min_len, min_len, min_len], box_size)
@@ -64,6 +70,9 @@ class ModelManager():
                     self.models[name]['box_size'] = box_obj_size
                     volume_sum += box_obj_vol
                     self.sampled_models_list.append(name)
+                    failed_cnt = 0
+                else:
+                    failed_cnt += 1
 
         return self.sampled_models_list
     

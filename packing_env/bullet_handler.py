@@ -49,8 +49,15 @@ class BulletHandler:
         def load_stl():
             coll_id = pb.createCollisionShape(shapeType=pb.GEOM_MESH, flags=pb.GEOM_FORCE_CONCAVE_TRIMESH, \
                     meshScale=scale, fileName=file)
-            vis_id = pb.createVisualShape(shapeType=pb.GEOM_MESH, meshScale=scale, fileName=file)
-            model_id = pb.createMultiBody(mass, coll_id, vis_id, pos, quat)
+            vis_id = pb.createVisualShape(
+                shapeType=pb.GEOM_MESH, meshScale=scale, fileName=file, 
+                rgbaColor=[0.92, 0.66, 0.33, 0.5], specularColor=[0.4, 0.4, 0.4])
+        
+            model_id = pb.createMultiBody(baseMass=mass, 
+                                          baseCollisionShapeIndex=coll_id, 
+                                          baseVisualShapeIndex=vis_id, 
+                                          basePosition=pos, 
+                                          baseOrientation=quat)
             return model_id
         try:
             print('[BulletHandler]: loading stl file = {}'.format(file))

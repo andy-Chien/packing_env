@@ -103,7 +103,8 @@ class PackingEnv(gym.Env):
             self.eps_cnt += 1
             success_rate = sum(self.success_buffer) / NUM_TO_CALC_SUCCESS_RATE
             avg_reward = sum(self.reward_buffer) / NUM_TO_CALC_SUCCESS_RATE
-            self.logger.info('eps: {}, success rate = {}, avg reward = {}'.format(self.eps_cnt, success_rate, avg_reward))
+            self.logger.info('eps: {}, success rate = {}, avg reward = {}, fill rate = {}'.format(
+                self.eps_cnt, success_rate, avg_reward,  self.box_fill_rate))
             if success_rate > 0.7:
                 self.box_fill_rate *= 1.01
             elif success_rate < 0.5:
@@ -159,19 +160,19 @@ class PackingEnv(gym.Env):
                 if depth < depth_min:
                     depth_min = depth
         z = self.box_size[2] - depth_min * self.pixel_size
-        self.logger.info('depth_min = {}, z = {}, x_range = {}, y_range = {}'.format(depth_min, z, x_range, y_range))
+        # self.logger.info('depth_min = {}, z = {}, x_range = {}, y_range = {}'.format(depth_min, z, x_range, y_range))
         obj_front_view = self.obj_views[0]
         for i in reversed(range(len(obj_front_view))):
             if any(obj_front_view[i]):
                 z += max(0, (i - self.img_width / 2)) * self.pixel_size # assume midle of img is midle of obj
                 break
         z += 0.1
-        self.logger.info('depth_min = {}, z = {}'.format(depth_min, z))
+        # self.logger.info('depth_min = {}, z = {}'.format(depth_min, z))
         return z
         
     
     def obj_in_queue(self):
-        return self.model_indx < len(self.model_list)
+        return len(self.model_list) > 0
 
     def is_done(self):
         return self.success or self.failed
@@ -211,15 +212,14 @@ class PackingEnv(gym.Env):
         pos = self.mm.random_pos(START_BOUND)
         quat = self.mm.random_quat()
         # quat = [0, 0, 0, 1]
-        curr_model = self.model_list[self.model_indx]
+        curr_model = self.model_list.pop()
         self.mm.load_model(curr_model, pos, quat)
-        self.model_indx += 1
         return curr_model
 
     def prepare_packing_box(self):
         box_size = np.random.uniform(BOX_BOUND[0], BOX_BOUND[1])
         box_pos = [-1.2*box_size[0]/2, -1.2*box_size[1]/2, 0.0]
-        box_id = self.bh.load_stl('packing_box.stl', box_size, box_pos, [0, 0, 0, 1])
+        box_id = self.bh.load_stl('packing_box_with_cover.stl', box_size, box_pos, [0, 0, 0, 1])
         return box_size, box_pos, box_id
     
     def get_observation(self, model):
@@ -274,8 +274,9 @@ class PackingEnv(gym.Env):
         self.bound_size = max(self.box_size) + 0.1
         self.pixel_size = self.bound_size / self.img_width
         self.volume_sum = 0
-        self.model_indx = 0
         self.model_list = self.mm.sample_models_in_bound(self.box_size, self.box_fill_rate)
+        if len(self.model_list) < 1:
+            return self.reset()
         self.bh.step_simulation(60, realtime=False)
         self.curr_model = self.prepare_objects()
         obs = self.get_observation(self.curr_model)
