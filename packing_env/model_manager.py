@@ -27,7 +27,7 @@ class ModelManager():
         return data
 
 
-    def sample_models_in_bound(self, box_size, fill_rate, min_size_rate=0.05, excess_tolerace=1.2):
+    def sample_models_in_bound(self, box_size, fill_rate, min_size_rate=0.05, excess_tolerace=1.2, generate_box=True):
         volume_sum = 0
         box_obj_cnt = 0
         failed_cnt = 0
@@ -39,7 +39,7 @@ class ModelManager():
         bound_volume = np.prod(box_size)
         print('bound_volume = {}'.format(bound_volume))
         while volume_sum < bound_volume * fill_rate and failed_cnt < 100:
-            if random_choice([True, False]):
+            if random_choice([True, False]) or not generate_box:
                 for _ in range(10):
                     model = random_choice(self.model_list)
                     if self.models[model]['max_length'] < max_length \

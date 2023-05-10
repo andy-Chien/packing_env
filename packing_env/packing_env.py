@@ -71,7 +71,7 @@ class PackingEnv(gym.Env):
         z = self.compute_place_z(action)
         self.mm.set_model_pos(self.curr_model, [action[0], action[1], z])
         self.mm.set_model_relative_euler(self.curr_model, [0, 0, action[2]])
-        self.bh.step_simulation(240, realtime=False)
+        self.bh.step_simulation(360, realtime=False)
         self.bh.set_model_pose(self.box_id, self.box_pos, [0,0,0,1])
         self.bh.step_simulation(60, realtime=False)
 
