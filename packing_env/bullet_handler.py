@@ -31,21 +31,22 @@ class BulletHandler:
         self.model_path.add(path)
         self.current_path = path 
         self.pb.setAdditionalSearchPath(path)
-        print('[BulletHandler]: !!!!!!!!!!!!!!!!!!!path = {}'.format(path))
+        # print('[BulletHandler]: !!!!!!!!!!!!!!!!!!!path = {}'.format(path))
     
     def load_urdf(self, path, pos, quat):
         try:
-            print('[BulletHandler]: path = {}'.format(path))
+            # print('[BulletHandler]: path = {}'.format(path))
             return self.pb.loadURDF(path, pos, quat)
         except:
             for p in self.model_path:
                 try:
                     self.set_model_path(p)
-                    print('[BulletHandler]: Model path swich to {}'.format(p))
+                    # print('[BulletHandler]: Model path swich to {}'.format(p))
                     model_id = self.pb.loadURDF(path, pos, quat)
                     return model_id
                 except:
-                    print('[BulletHandler]: Try another path')
+                    pass
+                    # print('[BulletHandler]: Try another path')
         print('[BulletHandler]: Model path not exist')
         return -1
     
@@ -64,17 +65,18 @@ class BulletHandler:
                                           baseOrientation=quat)
             return model_id
         try:
-            print('[BulletHandler]: loading stl file = {}'.format(file))
+            # print('[BulletHandler]: loading stl file = {}'.format(file))
             return load_stl()
         except:
             for p in self.model_path:
                 try:
                     self.set_model_path(p)
-                    print('[BulletHandler]: Model path swich to {}'.format(p))
+                    # print('[BulletHandler]: Model path swich to {}'.format(p))
                     model_id = load_stl()
                     return model_id
                 except:
-                    print('[BulletHandler]: Try another path')
+                    pass
+                    # print('[BulletHandler]: Try another path')
             print('[BulletHandler]: STL load failed')
             return -1
         
