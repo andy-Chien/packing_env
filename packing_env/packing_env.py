@@ -35,12 +35,15 @@ class PackingEnv(gym.Env):
             channel_last: bool = True,
             xy_action_space: int = 64,
             rot_action_space: int = 72,
+            bullet_gui: bool = False,
+            env_index: int = 0,
         ):
         super().__init__()
         model_path = get_package_share_directory(MODEL_PKG)
         camera_config_path = get_package_share_directory(THIS_PKG) + '/config/bullet_camera.yaml'
         self.img_width = img_width
-        self.bh = BulletHandler()
+        self.env_index = env_index
+        self.bh = BulletHandler(bullet_gui)
         self.gc = GeometryConverter()
         self.mm = ModelManager(model_path, self.bh)
         self.cm = SimCameraManager(camera_config_path)
@@ -99,16 +102,22 @@ class PackingEnv(gym.Env):
             done = self._check_success()
             reward = self._compute_reward()
 
-        if done and len(self.success_buffer) == NUM_TO_CALC_SUCCESS_RATE:
+        if done:
             self.eps_cnt += 1
-            success_rate = sum(self.success_buffer) / NUM_TO_CALC_SUCCESS_RATE
-            avg_reward = sum(self.reward_buffer) / NUM_TO_CALC_SUCCESS_RATE
-            self.logger.info('eps: {}, success rate = {}, avg reward = {}, fill rate = {}'.format(
-                self.eps_cnt, success_rate, avg_reward,  self.box_fill_rate))
-            if success_rate > 0.7:
-                self.box_fill_rate *= 1.01
-            elif success_rate < 0.5:
-                self.box_fill_rate *= 0.99
+            bfr = self.box_fill_rate
+            success_rate = avg_reward = 0.0
+            if len(self.success_buffer) == NUM_TO_CALC_SUCCESS_RATE:
+                success_rate = sum(self.success_buffer) / NUM_TO_CALC_SUCCESS_RATE
+                avg_reward = sum(self.reward_buffer) / NUM_TO_CALC_SUCCESS_RATE
+                if success_rate > 0.7:
+                    self.box_fill_rate *= 1.01
+                elif success_rate < 0.5:
+                    self.box_fill_rate *= 0.99
+            self.logger.info('-------------------------------------------------------------------')
+            self.logger.info('env: {}, eps: {}, success rate = {}, avg reward = {}, fill rate = {}'.format(
+                self.env_index, self.eps_cnt, success_rate, avg_reward,  bfr))
+            self.logger.info('-------------------------------------------------------------------')
+            
 
         
         info = {'info': 'hello'}
@@ -264,7 +273,7 @@ class PackingEnv(gym.Env):
         
         return self.obj_views
 
-    def reset(self):
+    def reset(self, seed=0):
         self.success = False
         self.failed = False
         self.bh.reset_all()
