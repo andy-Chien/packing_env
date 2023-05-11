@@ -28,7 +28,7 @@ def main():
     # We collect 4 transitions per call to `ènv.step()`
     # and performs 2 gradient steps per call to `ènv.step()`
     # if gradient_steps=-1, then we would do 4 gradients steps per call to `ènv.step()`
-    num_cpu = 4
+    num_cpu = 8
     vec_env = SubprocVecEnv([make_env(env_index=i) for i in range(num_cpu)])
     model = SAC("CnnPolicy", vec_env, train_freq=1, gradient_steps=2, verbose=1)
     model.learn(total_timesteps=50_000)
