@@ -209,7 +209,7 @@ class PackingEnv(gym.Env):
             r = -1 + self.volume_sum / self.box_volume
             self.reward_buffer.append(r)
         elif self.success:
-            r = 1
+            r = self.volume_sum / self.box_volume
             self.reward_buffer.append(r)
         else:
             r = 0
