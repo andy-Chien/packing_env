@@ -99,7 +99,9 @@ class ModelManager():
     def load_model(self, model, pos, quat):
         if 'a_random_box_obj_' in model:
             box = self.models[model]
-            self.loaded_models[model] = self.bh.create_box(box['box_size'], pos, quat, box['origin_volume'])
+            self.loaded_models[model] = self.bh.create_box(box['box_size'], pos, quat, box['origin_volume'] * 1000)
+            # box_size = box['box_size']
+            # self.loaded_models[model] = self.bh.load_stl('obj_box.stl', box_size, pos, quat, mass=box['origin_volume'] * 1000)
         else:
             self.loaded_models[model] = self.bh.load_urdf(model + '.urdf', pos, quat)
         self.set_model_pose(model, pos, quat)
