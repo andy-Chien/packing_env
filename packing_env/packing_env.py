@@ -61,8 +61,12 @@ class PackingEnv(gym.Env):
         else:
             self.action_space = spaces.Box(-1, 1, (3,))
 
-        self.observation_space = spaces.Box(low=0, high=255,
-                                            shape=(4, self.img_width, self.img_width), dtype=np.uint8)
+        self.observation_space = spaces.Dict({
+            'box': spaces.Box(low=0, high=255, shape=(1, self.img_width, self.img_width), dtype=np.uint8),
+            'obj': spaces.Box(low=0, high=255, shape=(3, self.img_width, self.img_width), dtype=np.uint8),
+            'num': spaces.Box(low=0, high=1.0, shape=(1,), dtype=np.float32)
+        })
+
         self.success_buffer = []
         self.reward_buffer = []
         self.box_fill_rate = 0.3
@@ -109,9 +113,9 @@ class PackingEnv(gym.Env):
             if len(self.success_buffer) == NUM_TO_CALC_SUCCESS_RATE:
                 success_rate = sum(self.success_buffer) / NUM_TO_CALC_SUCCESS_RATE
                 avg_reward = sum(self.reward_buffer) / NUM_TO_CALC_SUCCESS_RATE
-                if success_rate > 0.7:
+                if success_rate > 0.7 and self.success:
                     self.box_fill_rate *= 1.01
-                elif success_rate < 0.5:
+                elif success_rate < 0.5 and self.failed:
                     self.box_fill_rate *= 0.99
             self.logger.info('-------------------------------------------------------------------')
             self.logger.info('env: {}, eps: {}, success rate = {}, avg reward = {}, fill rate = {}'.format(
@@ -206,10 +210,10 @@ class PackingEnv(gym.Env):
 
     def _compute_reward(self):
         if self.failed:
-            r = -1 + self.volume_sum / self.box_volume
+            r = -2 + self.volume_sum / self.box_volume
             self.reward_buffer.append(r)
         elif self.success:
-            r = self.volume_sum / self.box_volume
+            r = 1 + self.volume_sum / self.box_volume
             self.reward_buffer.append(r)
         else:
             r = 0
@@ -269,9 +273,12 @@ class PackingEnv(gym.Env):
             plt.show()
             plt.imshow(self.obj_views[2], cmap='gray', vmin=0, vmax=255)
             plt.show()
-        self.obj_views = np.append(self.obj_views, np.expand_dims(self.box_view, axis=0), axis=0)
-        
-        return self.obj_views
+        # self.obj_views = np.append(self.obj_views, np.expand_dims(self.box_view, axis=0), axis=0)
+
+        obs = {'box': [self.box_view],
+               'obj': self.obj_views,
+               'num': [1.0]}
+        return obs
 
     def reset(self, seed=0):
         self.success = False
