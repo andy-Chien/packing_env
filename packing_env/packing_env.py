@@ -226,9 +226,9 @@ class PackingEnv(gym.Env):
         elif self.success:
             r = self.volume_sum / self.box_volume
         elif collision_points != []:
-            r = -1 + self.volume_sum / self.box_volume
+            r = (-1 + self.volume_sum / self.box_volume) / 10
         else:
-            r = 0
+            r = (self.volume_sum / self.box_volume) / 10
         
         return r
 
