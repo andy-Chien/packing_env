@@ -50,13 +50,14 @@ class BulletHandler:
         print('[BulletHandler]: Model path not exist')
         return -1
     
-    def load_stl(self, file, scale, pos, quat, mass=10):
+    def load_stl(self, file, scale, pos, quat, mass=10, static=False, color=[0.92, 0.66, 0.33, 1]):
+        flag = pb.GEOM_FORCE_CONCAVE_TRIMESH if static else pb.GEOM_CONCAVE_INTERNAL_EDGE
         def load_stl():
-            coll_id = self.pb.createCollisionShape(shapeType=pb.GEOM_MESH, flags=pb.GEOM_FORCE_CONCAVE_TRIMESH, \
-                    meshScale=scale, fileName=file)
+            coll_id = self.pb.createCollisionShape(
+                shapeType=pb.GEOM_MESH, flags=flag, meshScale=scale, fileName=file)
             vis_id = self.pb.createVisualShape(
                 shapeType=pb.GEOM_MESH, meshScale=scale, fileName=file, 
-                rgbaColor=[0.92, 0.66, 0.33, 0.5], specularColor=[0.4, 0.4, 0.4])
+                rgbaColor=color, specularColor=[0.4, 0.4, 0.4])
         
             model_id = self.pb.createMultiBody(baseMass=mass, 
                                           baseCollisionShapeIndex=coll_id, 
@@ -86,6 +87,9 @@ class BulletHandler:
         vis_id = self.pb.createVisualShape(shapeType=pb.GEOM_BOX, halfExtents=half_extents)
         model_id = self.pb.createMultiBody(mass, coll_id, vis_id, pos, quat)
         return model_id
+    
+    def get_closest_points(self, ba, bb, distance=0):
+        return self.pb.getClosestPoints(ba, bb, distance)
 
     def set_model_pose(self, model_id, pos, quat):
         self.pb.resetBasePositionAndOrientation(model_id, pos, quat)
