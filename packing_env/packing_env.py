@@ -69,16 +69,22 @@ class PackingEnv(gym.Env):
 
         self.success_buffer = []
         self.reward_buffer = []
-        self.box_fill_rate = 0.3
+        self.box_fill_rate = 0.2
         self.center_xy = [0, 0]
         self.eps_cnt = 0
 
     def step(self, action):
-        action = self.decode_action(action)
-        z = self.compute_place_z(action)
-        self.mm.set_model_pos(self.curr_model, [action[0], action[1], z])
-        self.mm.set_model_relative_euler(self.curr_model, [0, 0, action[2]])
-        self.bh.step_simulation(360, realtime=False)
+        action_transed = self.decode_action(action)
+        z_to_place, z_in_box = self.compute_place_z(action_transed)
+        self.mm.set_model_pos(self.curr_model, [action_transed[0], action_transed[1], z_in_box])
+        self.mm.set_model_relative_euler(self.curr_model, [0, 0, action_transed[2]])
+        c_points = self.bh.get_closest_points(self.box_id, self.mm.get_model_id(self.curr_model))
+        self.logger.info('action = {}, z_to_place = {}, leng of c_points is {}'.format(action, z_to_place, len(c_points)))
+        if z_to_place < 0:
+            self.logger.info('!!!!!!!!!!!!!!!!!!! FUCK !!!!!!!!!!!!!!!!!!!!')
+        self.mm.set_model_pos(self.curr_model, [action_transed[0], action_transed[1], z_to_place])
+        self.bh.step_simulation(120, realtime=self.env_index==0)
+        self.bh.step_simulation(240, realtime=False)
         self.bh.set_model_pose(self.box_id, self.box_pos, [0,0,0,1])
         self.bh.step_simulation(60, realtime=False)
 
@@ -89,7 +95,7 @@ class PackingEnv(gym.Env):
         if not done:
             self.volume_sum += obj_volume
         
-        reward = self._compute_reward()
+        reward = self._compute_reward(c_points)
 
         obs = None
         model = None
@@ -104,7 +110,9 @@ class PackingEnv(gym.Env):
             self.curr_model = model
         elif not done:
             done = self._check_success()
-            reward = self._compute_reward()
+            reward = self._compute_reward(c_points)
+
+        self.reward_buffer[-1] += reward
 
         if done:
             self.eps_cnt += 1
@@ -114,9 +122,9 @@ class PackingEnv(gym.Env):
                 success_rate = sum(self.success_buffer) / NUM_TO_CALC_SUCCESS_RATE
                 avg_reward = sum(self.reward_buffer) / NUM_TO_CALC_SUCCESS_RATE
                 if success_rate > 0.7 and self.success:
-                    self.box_fill_rate *= 1.01
+                    self.box_fill_rate = min(self.box_fill_rate * 1.01, 0.9)
                 elif success_rate < 0.5 and self.failed:
-                    self.box_fill_rate *= 0.99
+                    self.box_fill_rate = max(self.box_fill_rate * 0.99, 0.1)
             self.logger.info('-------------------------------------------------------------------')
             self.logger.info('env: {}, eps: {}, success rate = {}, avg reward = {}, fill rate = {}'.format(
                 self.env_index, self.eps_cnt, success_rate, avg_reward,  bfr))
@@ -129,19 +137,23 @@ class PackingEnv(gym.Env):
         return obs, reward, done, info
     
     def decode_action(self, action):
+        action_transed = [x for x in action]
         if isinstance(self.action_space, spaces.Box):
-            action[0] = action[0] * self.box_size[0] / 2 + self.center_xy[0]
-            action[1] = action[1] * self.box_size[1] / 2 + self.center_xy[1] # 2 because [-1, 1]
-            action[2] *= np.pi
+            action_transed[0] = action_transed[0] * self.box_size[0] / 2 + self.center_xy[0]
+            action_transed[1] = action_transed[1] * self.box_size[1] / 2 + self.center_xy[1] # 2 because [-1, 1]
+            action_transed[2] *= np.pi
         elif isinstance(self.action_space, spaces.MultiDiscrete):
-            action[0] = action[0] * self.box_size[0] / self.xy_action_space + self.center_xy[0]
-            action[1] = action[1] * self.box_size[1] / self.xy_action_space + self.center_xy[1]
-            action[2] *= np.pi / self.rot_action_space
-        return action
+            action_transed[0] -= self.xy_action_space / 2
+            action_transed[1] -= self.xy_action_space / 2
+            action_transed[2] -= self.rot_action_space / 2
+            action_transed[0] = action_transed[0] * self.box_size[0] / self.xy_action_space + self.center_xy[0]
+            action_transed[1] = action_transed[1] * self.box_size[1] / self.xy_action_space + self.center_xy[1]
+            action_transed[2] *= np.pi / self.rot_action_space
+        return action_transed
     
     def compute_place_z(self, action):
-        index_x = int(-1 * (action[1] - self.center_xy[1]) / self.pixel_size + self.img_width / 2)
-        index_y = int(-1 * (action[0] - self.center_xy[0]) / self.pixel_size + self.img_width / 2)
+        index_x = round(-1 * (action[1] - self.center_xy[1]) / self.pixel_size + self.img_width / 2)
+        index_y = round(-1 * (action[0] - self.center_xy[0]) / self.pixel_size + self.img_width / 2)
         obj_bottom_view = self.obj_views[2]
         obj_bv_transpose = np.array(obj_bottom_view).transpose()
         x_min, y_min, x_max, y_max = 0, 0, self.img_width, self.img_width
@@ -162,8 +174,8 @@ class PackingEnv(gym.Env):
                 y_max = i
                 break
 
-        x_range = int((x_max - x_min) / 2)
-        y_range = int((y_max - y_min) / 2)
+        x_range = round((x_max - x_min) / 2)
+        y_range = round((y_max - y_min) / 2)
         indx_x_min, indx_x_max = max(0, index_x - x_range), min(self.img_width, index_x + x_range)
         indx_y_min, indx_y_max = max(0, index_y - y_range), min(self.img_width, index_y + y_range)
         depth_min = 999
@@ -172,16 +184,18 @@ class PackingEnv(gym.Env):
                 depth = self.box_view[i][j]
                 if depth < depth_min:
                     depth_min = depth
-        z = self.box_size[2] - depth_min * self.pixel_size
+        z = self.box_size[2] - depth_min * self.bound_size / 255
+        z_in_box = self.box_size[2] / 2
         # self.logger.info('depth_min = {}, z = {}, x_range = {}, y_range = {}'.format(depth_min, z, x_range, y_range))
         obj_front_view = self.obj_views[0]
         for i in reversed(range(len(obj_front_view))):
             if any(obj_front_view[i]):
-                z += max(0, (i - self.img_width / 2)) * self.pixel_size # assume midle of img is midle of obj
+                z_adjust = max(0, (i - self.img_width / 2)) * self.pixel_size # assume midle of img is midle of obj
+                z += z_adjust + 0.05
+                z_in_box += z_adjust
                 break
-        z += 0.1
         # self.logger.info('depth_min = {}, z = {}'.format(depth_min, z))
-        return z
+        return z, z_in_box
         
     
     def obj_in_queue(self):
@@ -198,27 +212,24 @@ class PackingEnv(gym.Env):
                 obj_pos[1] < -1 * self.box_size[1] / 2 or \
                 obj_pos[2] > self.box_size[2]:
             self.failed = True
-            self.success_buffer.append(0)
+            self.success_buffer[-1] = 0
         elif not self.obj_in_queue():
             self.success = True
-            self.success_buffer.append(1)
-
-        if len(self.success_buffer) > NUM_TO_CALC_SUCCESS_RATE:
-            self.success_buffer.pop(0)
+            self.success_buffer[-1] = 1
+            
 
         return self.is_done()
 
-    def _compute_reward(self):
+    def _compute_reward(self, collision_points=[]):
         if self.failed:
-            r = -2 + self.volume_sum / self.box_volume
-            self.reward_buffer.append(r)
+            r = -1 + self.volume_sum / self.box_volume
         elif self.success:
-            r = 1 + self.volume_sum / self.box_volume
-            self.reward_buffer.append(r)
+            r = self.volume_sum / self.box_volume
+        elif collision_points != []:
+            r = -1 + self.volume_sum / self.box_volume
         else:
             r = 0
-        if len(self.reward_buffer) > NUM_TO_CALC_SUCCESS_RATE:
-            self.reward_buffer.pop(0)
+        
         return r
 
     def prepare_objects(self):
@@ -232,7 +243,7 @@ class PackingEnv(gym.Env):
     def prepare_packing_box(self):
         box_size = np.random.uniform(BOX_BOUND[0], BOX_BOUND[1])
         box_pos = [-1.2*box_size[0]/2, -1.2*box_size[1]/2, 0.0]
-        box_id = self.bh.load_stl('packing_box_with_cover.stl', box_size, box_pos, [0, 0, 0, 1])
+        box_id = self.bh.load_stl('packing_box_with_cover.obj', box_size, box_pos, [0, 0, 0, 1], static=True)
         return box_size, box_pos, box_id
     
     def get_observation(self, model):
@@ -298,6 +309,14 @@ class PackingEnv(gym.Env):
         obs = self.get_observation(self.curr_model)
         if obs is None:
             return self.reset()
+
+        self.reward_buffer.append(0.0)
+        if len(self.reward_buffer) > NUM_TO_CALC_SUCCESS_RATE:
+            self.reward_buffer.pop(0)
+
+        self.success_buffer.append(0)
+        if len(self.success_buffer) > NUM_TO_CALC_SUCCESS_RATE:
+            self.success_buffer.pop(0)
         return obs
 
     def render(self, mode="human"):
