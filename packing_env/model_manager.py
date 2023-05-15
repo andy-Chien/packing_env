@@ -27,7 +27,7 @@ class ModelManager():
         return data
 
 
-    def sample_models_in_bound(self, box_size, fill_rate, min_size_rate=0.05, excess_tolerace=1.2, generate_box=True):
+    def sample_models_in_bound(self, box_size, fill_rate, min_size_rate=0.03, excess_tolerace=1.2, generate_box=True):
         volume_sum = 0
         box_obj_cnt = 0
         failed_cnt = 0
@@ -39,12 +39,13 @@ class ModelManager():
         bound_volume = np.prod(box_size)
         print('bound_volume = {}'.format(bound_volume))
         while volume_sum < bound_volume * fill_rate and failed_cnt < 100:
+            et = 999 if self.sampled_models_list is [] else excess_tolerace
             if random_choice([True, False]) or not generate_box:
                 for _ in range(10):
                     model = random_choice(self.model_list)
                     if self.models[model]['max_length'] < max_length \
                             and volume_sum + self.models[model]['convex_volume'] \
-                            < min(bound_volume * fill_rate * excess_tolerace, bound_volume) \
+                            < min(bound_volume * fill_rate * et, bound_volume) \
                             and self.models[model]['convex_volume'] > bound_volume * min_size_rate:
                         volume_sum += self.models[model]['convex_volume']
                         self.sampled_models_list.append(model)
@@ -59,7 +60,7 @@ class ModelManager():
                 box_obj_max_len = np.amax(box_obj_size)
                 if box_obj_max_len < max_length \
                         and volume_sum + box_obj_vol \
-                        < min(bound_volume * fill_rate * excess_tolerace, bound_volume) \
+                        < min(bound_volume * fill_rate * et, bound_volume) \
                         and box_obj_vol > bound_volume * min_size_rate:
                     name = 'a_random_box_obj_' + str(box_obj_cnt)
                     box_obj_cnt += 1
@@ -99,9 +100,11 @@ class ModelManager():
     def load_model(self, model, pos, quat):
         if 'a_random_box_obj_' in model:
             box = self.models[model]
-            self.loaded_models[model] = self.bh.create_box(box['box_size'], pos, quat, box['origin_volume'] * 1000)
-            # box_size = box['box_size']
-            # self.loaded_models[model] = self.bh.load_stl('obj_box.stl', box_size, pos, quat, mass=box['origin_volume'] * 1000)
+            # self.loaded_models[model] = self.bh.create_box(box['box_size'], pos, quat, box['origin_volume'] * 1000)
+            box_size = box['box_size']
+            color = np.random.uniform(low=0, high=1, size=3).tolist()
+            self.loaded_models[model] = self.bh.load_stl(
+                'obj_box.obj', box_size, pos, quat, mass=box['origin_volume'] * 1000, color=color)
         else:
             self.loaded_models[model] = self.bh.load_urdf(model + '.urdf', pos, quat)
         self.set_model_pose(model, pos, quat)
@@ -114,7 +117,9 @@ class ModelManager():
 
     def set_model_pos(self, model, pos):
         # pb.resetBasePositionAndOrientation(self.loaded_models[model], pos, [0,0,0,1])
-        self.bh.set_model_pose(self.loaded_models[model], pos, [0,0,0,1])
+        model_id = self.loaded_models[model]
+        _, curr_quat = self.bh.get_model_pose(model_id)
+        self.bh.set_model_pose(self.loaded_models[model], pos, curr_quat)
 
     def set_model_pose(self, model, pos, quat):
         # pb.resetBasePositionAndOrientation(self.loaded_models[model], pos, quat)
