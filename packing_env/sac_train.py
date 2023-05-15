@@ -104,7 +104,7 @@ def main():
     # We collect 4 transitions per call to `ènv.step()`
     # and performs 2 gradient steps per call to `ènv.step()`
     # if gradient_steps=-1, then we would do 4 gradients steps per call to `ènv.step()`
-    num_cpu = 8
+    num_cpu = 12
     vec_env = SubprocVecEnv([make_env(env_index=i) for i in range(num_cpu)])
     policy_kwargs= dict(
         features_extractor_class=CombinedExtractor,
@@ -123,7 +123,7 @@ def main():
         obs, rewards, dones, info = vec_env.step(action)
         # if done:
         #     obs = env.reset()
-        print('obs.shape() = {}'.format(obs.shape))
+        # print('obs.shape() = {}'.format(obs.shape))
         # env.render()
 
 if __name__ == '__main__':

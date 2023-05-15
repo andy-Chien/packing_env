@@ -28,8 +28,8 @@ class GeometryConverter(object):
 
     def get_view_from_voxel(self, voxel, pixel_size, width, tar_center=[0,0,0], far_flat=1.0, axis='z'):
         axis_map = {'x': 0, 'y':1, 'z':2, '-x': 0, '-y':1, '-z':2}
-        max_b, min_b = voxel.get_max_bound(), voxel.get_min_bound()
-        vl, img_l = np.linalg.norm(max_b - min_b), pow(2 * pow(pixel_size * width, 2), 0.5)
+        # max_b, min_b = voxel.get_max_bound(), voxel.get_min_bound()
+        # vl, img_l = np.linalg.norm(max_b - min_b), pow(2 * pow(pixel_size * width, 2), 0.5)
         # if vl > img_l:
         #     self.logger.warn('Length of object is longer than target view')
         vs, vo, tc = voxel.voxel_size, voxel.origin, np.array(tar_center, dtype=np.float32)
