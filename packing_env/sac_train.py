@@ -31,28 +31,28 @@ class CombinedExtractor(BaseFeaturesExtractor):
                 # extractors[key] = nn.Sequential(nn.MaxPool2d(4), nn.Flatten())
                 # total_concat_size += subspace.shape[1] // 4 * subspace.shape[2] // 4
                 w = ((((s[1] + 2 - 4) // 2 + 1) - 3) + 1) - 3 + 1
-                total_concat_size += w * w * s[0] * 32
+                total_concat_size += w * w * s[0] * 8
                 extractors[key] = nn.Sequential(
-                    nn.Conv2d(s[0], s[0] * 16, kernel_size=4, stride=2, padding=1, groups=s[0]),
-                    nn.ReLU(),
-                    nn.Conv2d(s[0] * 16, s[0] * 32, kernel_size=3, stride=1, padding=0, groups=s[0]),
-                    nn.ReLU(),
-                    nn.Conv2d(s[0] * 32, s[0] * 32, kernel_size=3, stride=1, padding=0, groups=s[0]),
-                    nn.ReLU(),
+                    nn.Conv2d(s[0], s[0] * 8, kernel_size=4, stride=2, padding=1, groups=s[0]),
+                    nn.LeakyReLU(),
+                    nn.Conv2d(s[0] * 8, s[0] * 8, kernel_size=3, stride=1, padding=0, groups=s[0]),
+                    nn.LeakyReLU(),
+                    nn.Conv2d(s[0] * 8, s[0] * 8, kernel_size=3, stride=1, padding=0, groups=s[0]),
+                    nn.LeakyReLU(),
                     nn.Flatten(),
                 )
             elif key == 'obj':
                 # extractors[key] = nn.Sequential(nn.MaxPool2d(4), nn.Flatten())
                 # total_concat_size += subspace.shape[1] // 4 * subspace.shape[2] // 4
                 w = ((((s[1] + 2 - 4) // 2 + 1) - 3) + 1) - 3 + 1
-                total_concat_size += w * w * s[0] * 32
+                total_concat_size += w * w * s[0] * 8
                 extractors[key] = nn.Sequential(
-                    nn.Conv2d(s[0], s[0] * 16, kernel_size=4, stride=2, padding=1, groups=s[0]),
-                    nn.ReLU(),
-                    nn.Conv2d(s[0] * 16, s[0] * 32, kernel_size=3, stride=1, padding=0, groups=s[0]),
-                    nn.ReLU(),
-                    nn.Conv2d(s[0] * 32, s[0] * 32, kernel_size=3, stride=1, padding=0, groups=s[0]),
-                    nn.ReLU(),
+                    nn.Conv2d(s[0], s[0] * 8, kernel_size=4, stride=2, padding=1, groups=s[0]),
+                    nn.LeakyReLU(),
+                    nn.Conv2d(s[0] * 8, s[0] * 8, kernel_size=3, stride=1, padding=0, groups=s[0]),
+                    nn.LeakyReLU(),
+                    nn.Conv2d(s[0] * 8, s[0] * 8, kernel_size=3, stride=1, padding=0, groups=s[0]),
+                    nn.LeakyReLU(),
                     nn.Flatten(),
                 )
             elif key == "num":
@@ -61,17 +61,17 @@ class CombinedExtractor(BaseFeaturesExtractor):
                 total_concat_size += s[0]
 
 
-        self.linear = nn.Sequential(
-            nn.Linear(total_concat_size, features_dim),
-            nn.ReLU(),
-            nn.Linear(features_dim, features_dim),
-            nn.ReLU(),
-        )
+        # self.linear = nn.Sequential(
+        #     nn.Linear(total_concat_size, features_dim),
+        #     nn.ReLU(),
+        #     nn.Linear(features_dim, features_dim),
+        #     nn.ReLU(),
+        # )
 
         self.extractors = nn.ModuleDict(extractors)
 
         # Update the features dim manually
-        # self._features_dim = total_concat_size
+        self._features_dim = total_concat_size
 
     def forward(self, observations) -> th.Tensor:
         encoded_tensor_list = []
@@ -80,7 +80,8 @@ class CombinedExtractor(BaseFeaturesExtractor):
         for key, extractor in self.extractors.items():
             encoded_tensor_list.append(extractor(observations[key]))
         # Return a (B, self._features_dim) PyTorch tensor, where B is batch dimension.
-        return self.linear(th.cat(encoded_tensor_list, dim=1))
+        # return self.linear(th.cat(encoded_tensor_list, dim=1))
+        return th.cat(encoded_tensor_list, dim=1)
 
 def make_env(env_index: int, seed: int = 0):
     """
