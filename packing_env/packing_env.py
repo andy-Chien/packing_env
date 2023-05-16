@@ -69,7 +69,7 @@ class PackingEnv(gym.Env):
 
         self.success_buffer = []
         self.reward_buffer = []
-        self.box_fill_rate = 0.2
+        self.difficulty = 0.2
         self.center_xy = [0, 0]
         self.eps_cnt = 0
 
@@ -116,18 +116,18 @@ class PackingEnv(gym.Env):
 
         if done:
             self.eps_cnt += 1
-            bfr = self.box_fill_rate
+            dft = self.difficulty
             success_rate = avg_reward = 0.0
             if len(self.success_buffer) == NUM_TO_CALC_SUCCESS_RATE:
                 success_rate = sum(self.success_buffer) / NUM_TO_CALC_SUCCESS_RATE
                 avg_reward = sum(self.reward_buffer) / NUM_TO_CALC_SUCCESS_RATE
                 if success_rate > 0.7 and self.success:
-                    self.box_fill_rate = min(self.box_fill_rate * 1.01, 0.9)
+                    self.difficulty = min(self.difficulty * 1.01, 0.9)
                 elif success_rate < 0.5 and self.failed:
-                    self.box_fill_rate = max(self.box_fill_rate * 0.99, 0.1)
+                    self.difficulty = max(self.difficulty * 0.99, 0.1)
             self.logger.info('-------------------------------------------------------------------')
             self.logger.info('env: {}, eps: {}, success rate = {}, avg reward = {}, fill rate = {}'.format(
-                self.env_index, self.eps_cnt, success_rate, avg_reward,  bfr))
+                self.env_index, self.eps_cnt, success_rate, avg_reward, dft))
             self.logger.info('-------------------------------------------------------------------')
             
 
@@ -234,7 +234,7 @@ class PackingEnv(gym.Env):
 
     def prepare_objects(self):
         pos = self.mm.random_pos(START_BOUND)
-        quat = self.mm.random_quat()
+        quat = self.mm.random_quat(range=self.difficulty**2)
         # quat = [0, 0, 0, 1]
         curr_model = self.model_list.pop()
         self.mm.load_model(curr_model, pos, quat)
@@ -301,7 +301,8 @@ class PackingEnv(gym.Env):
         self.bound_size = max(self.box_size) + 0.1
         self.pixel_size = self.bound_size / self.img_width
         self.volume_sum = 0
-        self.model_list = self.mm.sample_models_in_bound(self.box_size, self.box_fill_rate)
+        self.model_list = self.mm.sample_models_in_bound(
+            self.box_size, fill_rate=self.difficulty, max_length_rate=self.difficulty**0.3)
         if len(self.model_list) < 1:
             return self.reset()
         self.bh.step_simulation(60, realtime=False)

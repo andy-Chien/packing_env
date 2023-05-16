@@ -27,7 +27,8 @@ class ModelManager():
         return data
 
 
-    def sample_models_in_bound(self, box_size, fill_rate, min_size_rate=0.03, excess_tolerace=1.2, generate_box=True):
+    def sample_models_in_bound(self, box_size, fill_rate, min_size_rate=0.03, 
+                               excess_tolerace=1.2, generate_box=True, max_length_rate=1):
         volume_sum = 0
         box_obj_cnt = 0
         failed_cnt = 0
@@ -35,7 +36,7 @@ class ModelManager():
         # min_bound = np.array(bound[0])
         # max_bound = np.array(bound[1])
         # bound_size = np.absolute(max_bound - min_bound)
-        max_length = np.amax(box_size[:2])
+        max_length = np.amax(box_size[:2]) * max_length_rate
         bound_volume = np.prod(box_size)
         print('bound_volume = {}'.format(bound_volume))
         while volume_sum < bound_volume * fill_rate and failed_cnt < 100:
@@ -55,7 +56,7 @@ class ModelManager():
                         failed_cnt += 1
             else:
                 min_len = ((bound_volume * min_size_rate) ** (1 / 3)) / 2 
-                box_obj_size = np.random.uniform([min_len, min_len, min_len], box_size)
+                box_obj_size = np.random.uniform([min_len, min_len, min_len], [max_length, max_length, max_length])
                 box_obj_vol = np.prod(box_obj_size)
                 box_obj_max_len = np.amax(box_obj_size)
                 if box_obj_max_len < max_length \
@@ -112,8 +113,8 @@ class ModelManager():
     def random_pos(self, bound):
         return np.random.uniform(low=bound[0], high=bound[1])
 
-    def random_quat(self):
-        return pb.getQuaternionFromEuler(np.random.uniform(low=-1*np.pi, high=np.pi, size=3))
+    def random_quat(self, range=1.0):
+        return pb.getQuaternionFromEuler(np.random.uniform(low=-1*range*np.pi, high=range*np.pi, size=3))
 
     def set_model_pos(self, model, pos):
         # pb.resetBasePositionAndOrientation(self.loaded_models[model], pos, [0,0,0,1])
