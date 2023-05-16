@@ -9,7 +9,7 @@ class MeshHelper:
             self.mesh = o3d.io.read_triangle_mesh(mesh)
         elif isinstance(mesh, o3d.geometry.TriangleMesh):
             self.mesh = mesh
-        self.origin, self.volume = None, None
+        self.origin, self.volume, self.mass = None, None, None
     
     @jit
     def __calculate_mass_center_and_volume(self):
@@ -102,21 +102,37 @@ class MeshHelper:
         vis.destroy_window()
 
     def get_max_length(self):
-        bounding_box = self.mesh.get_oriented_bounding_box()
+        bounding_box = self.mesh.get_minimal_oriented_bounding_box()
+        center = bounding_box.get_center()
         max_bound = bounding_box.get_max_bound()
-        min_bound = bounding_box.get_min_bound()
-        return np.linalg.norm(max_bound - min_bound)
+        return 2 * np.linalg.norm((max_bound - center))
 
     def scale_mesh(self, scale):
         center = self.mesh.get_center()
         return o3d.geometry.TriangleMesh(self.mesh).scale(scale, center)
 
     def move_origin_to_center(self):
-        bounding_box = self.mesh.get_oriented_bounding_box()
-        max_bound = bounding_box.get_max_bound()
-        min_bound = bounding_box.get_min_bound()
-        center = (max_bound + min_bound) / 2
+        bounding_box = self.mesh.get_axis_aligned_bounding_box()
+        center = bounding_box.get_center()
         self.mesh = self.mesh.translate(center, False)
+
+    def move_origin_to_center_and_rotate(self):
+        self.move_origin_to_center()
+        bounding_box = self.mesh.get_minimal_oriented_bounding_box()
+        self.mesh.rotate(np.transpose(bounding_box.R))
+
+    def compute_bounding_box_inertia(self):
+        if not self.mass:
+            return None
+        bounding_box = self.mesh.get_axis_aligned_bounding_box()
+        [a, b, c] = bounding_box.get_extent()
+        m =  self.mass
+        xx = m * (b*b + c*c) / 12
+        yy = m * (a*a + c*c) / 12
+        zz = m * (a*a + b*b) / 12
+        return [xx, yy, zz]
+
+
 
 
 if __name__ == '__main__':

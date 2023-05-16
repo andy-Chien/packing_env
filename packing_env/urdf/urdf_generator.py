@@ -58,7 +58,7 @@ class File:
         Raises:
             No Error yet
         """
-        def __init__(self, name, xyz, rpy, mass, mesh_file, color_name, rgba):
+        def __init__(self, name, xyz, rpy, mass, mesh_file, color_name, rgba, inertia):
             self.name = name
             self.xyz = xyz
             self.rpy = rpy
@@ -66,6 +66,7 @@ class File:
             self.mesh_file = mesh_file
             self.color_name = color_name
             self.rgba = rgba
+            self.inertia = inertia
             self.element = self.xmlify()
             
         # Formatting options, see http://tinyurl.com/y9vohsxz
@@ -75,19 +76,20 @@ class File:
 
         # ISSUE: String after closing brackets of material need to be indented one space more. wtf
         def xmlify(self):
+            it = self.inertia
             xml = '\n'.join([
                     '\n  <link name="%s">' % self.name,
                     '    <contact>',
                     '      <lateral_friction value="1.0"/>',
-                    '      <rolling_friction value="0.0"/>',
+                    '      <rolling_friction value="0.0001"/>',
                     '      <inertia_scaling value="3.0"/>',
-                    '      <contact_cfm value="0.0"/>',
-                    '      <contact_erp value="1.0"/>',
+                    '      <contact_cfm value="0.1"/>',
+                    '      <contact_erp value="0.9"/>',
                     '    </contact>',
                     '    <inertial>',
                     '      <origin xyz="%s" rpy="%s"/>' % (self.xyz, self.rpy),
                     '      <mass value="%s"/>' % self.mass,
-                    '      <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="0"/>',
+                    '      <inertia ixx="%s" ixy="0" ixz="0" iyy="%s" iyz="0" izz="%s"/>' % (it[0], it[1], it[2]),
                     '    </inertial>',
                     '    <visual>',
                     '      <geometry>',
@@ -169,7 +171,7 @@ class URDFGenerateThread(threading.Thread):
         #         return
         #     scaled_mesh_file = os.path.splitext(mesh_file)[0] + '_' + str(scale_indx) + os.path.splitext(mesh_file)[1]
         #     self.urdf_generate(scaled_mesh, number, scaled_mesh_file)
-        mesh.move_origin_to_center()
+        mesh.move_origin_to_center_and_rotate()
         self.urdf_generate(mesh, number, mesh_file)
 
     def urdf_generate(self, mesh, number, mesh_file):
@@ -184,6 +186,7 @@ class URDFGenerateThread(threading.Thread):
 
             mesh.save_file(self.mesh_target_dir + mesh_file)
 
+            inertia = mesh.compute_bounding_box_inertia()
             rand_array = np.random.rand(4)
             rand_array[3] = 1
             rgba = str(rand_array).replace('[', '').replace(']', '')
@@ -191,7 +194,7 @@ class URDFGenerateThread(threading.Thread):
             robot_name = os.path.splitext(mesh_file)[0]
 
             uref_file = File(
-                        File.Link('base_link', origin, '0 0 0', str(mesh.mass), mesh_path_for_urdf, 'rand', rgba),
+                        File.Link('base_link', origin, '0 0 0', str(mesh.mass), mesh_path_for_urdf, 'rand', rgba, inertia),
                         name=robot_name,
                         filename = urdf_path + robot_name + '.urdf'
                 )
@@ -208,7 +211,7 @@ class URDFGenerateThread(threading.Thread):
 
 
 THREADS = 6
-SOURCE_PATH = '/mesh/' # berkeley_dateset
+SOURCE_PATH = '/mesh_tmp/' # berkeley_dateset
 TARGET_PATH = '/mesh/'
 PKG_NAME = 'objects_model'
 
