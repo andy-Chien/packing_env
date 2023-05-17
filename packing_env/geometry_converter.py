@@ -38,7 +38,7 @@ class GeometryConverter(object):
             self.logger.warn('There are no points in voxel')
             return None
         tar_size_voxel = (voxel_index_list * vs + vo - tc).astype(np.float32)
-        view = np.zeros([width, width], dtype=np.uint8)
+        view = np.zeros([width, width], dtype=np.float32)
         axis_indx = axis_map[axis]
         ax = -1 if '-' in axis else 1
 
@@ -65,9 +65,9 @@ class GeometryConverter(object):
             x_idx, y_idx = x_indx(v), y_indx(v)
             if not all([0 <= x < width for x in [x_idx, y_idx]]):
                 continue
-            val_new = int(max(0, (min(ax * v[axis_indx], far_flat) / far_flat) * 255))
+            val_new = max(0, (min(ax * v[axis_indx], far_flat) / far_flat))
             val = view[y_idx, x_idx]
-            if val_new < val or val == 0:
+            if val_new < val or val <= 0.00001:
                 view[y_idx, x_idx] = val_new
         return view
 

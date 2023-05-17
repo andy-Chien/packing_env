@@ -62,8 +62,8 @@ class PackingEnv(gym.Env):
             self.action_space = spaces.Box(-1, 1, (3,))
 
         self.observation_space = spaces.Dict({
-            'box': spaces.Box(low=0, high=255, shape=(1, self.img_width, self.img_width), dtype=np.uint8),
-            'obj': spaces.Box(low=0, high=255, shape=(3, self.img_width, self.img_width), dtype=np.uint8),
+            'box': spaces.Box(low=0, high=1.0, shape=(1, self.img_width, self.img_width), dtype=np.float32),
+            'obj': spaces.Box(low=0, high=1.0, shape=(3, self.img_width, self.img_width), dtype=np.float32),
             'num': spaces.Box(low=0, high=1.0, shape=(1,), dtype=np.float32)
         })
 
@@ -72,6 +72,8 @@ class PackingEnv(gym.Env):
         self.difficulty = 0.2
         self.center_xy = [0, 0]
         self.eps_cnt = 0
+        self.success_rate = 0.0
+        self.avg_reward = 0.0
 
     def step(self, action):
         action_transed = self.decode_action(action)
@@ -126,9 +128,10 @@ class PackingEnv(gym.Env):
                 elif success_rate < 0.5 and self.failed:
                     self.difficulty = max(self.difficulty * 0.99, 0.1)
             self.logger.info('-------------------------------------------------------------------')
-            self.logger.info('env: {}, eps: {}, success rate = {}, avg reward = {}, fill rate = {}'.format(
+            self.logger.info('env: {}, eps: {}, success rate = {}, avg reward = {}, difficulty = {}'.format(
                 self.env_index, self.eps_cnt, success_rate, avg_reward, dft))
             self.logger.info('-------------------------------------------------------------------')
+            self.success_rate, self.avg_reward = success_rate, avg_reward
             
 
         
@@ -184,7 +187,7 @@ class PackingEnv(gym.Env):
                 depth = self.box_view[i][j]
                 if depth < depth_min:
                     depth_min = depth
-        z = self.box_size[2] - depth_min * self.bound_size / 255
+        z = self.box_size[2] - depth_min * self.bound_size
         z_in_box = self.box_size[2] / 2
         # self.logger.info('depth_min = {}, z = {}, x_range = {}, y_range = {}'.format(depth_min, z, x_range, y_range))
         obj_front_view = self.obj_views[0]
@@ -223,12 +226,12 @@ class PackingEnv(gym.Env):
     def _compute_reward(self, collision_points=[]):
         if self.failed:
             r = -1 + self.volume_sum / self.box_volume
+        elif collision_points != []:
+            r = -1 + self.volume_sum / self.box_volume
         elif self.success:
             r = self.volume_sum / self.box_volume
-        elif collision_points != []:
-            r = (-1 + self.volume_sum / self.box_volume) / 10
         else:
-            r = (self.volume_sum / self.box_volume) / 10
+            r = self.volume_sum / self.box_volume
         
         return r
 
@@ -255,7 +258,7 @@ class PackingEnv(gym.Env):
         if self.box_view is None:
             return None
         if SHOW_IMG:
-            plt.imshow(self.box_view, cmap='gray', vmin=0, vmax=255)
+            plt.imshow(self.box_view, cmap='gray', vmin=0, vmax=1.0)
             plt.show()
         obj_cloud_list = []
         relative_angle = 2 * np.pi / VIEWS_PER_OBJ
@@ -278,11 +281,11 @@ class PackingEnv(gym.Env):
         if self.obj_views is None:
             return None
         if SHOW_IMG:
-            plt.imshow(self.obj_views[0], cmap='gray', vmin=0, vmax=255)
+            plt.imshow(self.obj_views[0], cmap='gray', vmin=0, vmax=1.0)
             plt.show()
-            plt.imshow(self.obj_views[1], cmap='gray', vmin=0, vmax=255)
+            plt.imshow(self.obj_views[1], cmap='gray', vmin=0, vmax=1.0)
             plt.show()
-            plt.imshow(self.obj_views[2], cmap='gray', vmin=0, vmax=255)
+            plt.imshow(self.obj_views[2], cmap='gray', vmin=0, vmax=1.0)
             plt.show()
         # self.obj_views = np.append(self.obj_views, np.expand_dims(self.box_view, axis=0), axis=0)
 
