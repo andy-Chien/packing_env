@@ -69,7 +69,7 @@ class PackingEnv(gym.Env):
 
         self.success_buffer = []
         self.reward_buffer = []
-        self.difficulty = 0.2
+        self.difficulty = 0.25
         self.center_xy = [0, 0]
         self.eps_cnt = 0
         self.success_rate = 0.0
@@ -81,7 +81,6 @@ class PackingEnv(gym.Env):
         self.mm.set_model_pos(self.curr_model, [action_transed[0], action_transed[1], z_in_box])
         self.mm.set_model_relative_euler(self.curr_model, [0, 0, action_transed[2]])
         c_points = self.bh.get_closest_points(self.box_id, self.mm.get_model_id(self.curr_model))
-        self.logger.info('action = {}, z_to_place = {}, leng of c_points is {}'.format(action, z_to_place, len(c_points)))
         if z_to_place < 0:
             self.logger.info('!!!!!!!!!!!!!!!!!!! FUCK !!!!!!!!!!!!!!!!!!!!')
         self.mm.set_model_pos(self.curr_model, [action_transed[0], action_transed[1], z_to_place])
@@ -99,6 +98,12 @@ class PackingEnv(gym.Env):
         
         reward = self._compute_reward(c_points)
 
+        if self.env_index == 0 and not done:
+            self.logger.info('action = {}, action_transed = {}, z_to_place = {}, leng of c_points is {}, c_points is []? {}, reward = {},'.format(
+                action, action_transed, z_to_place, len(c_points), c_points == [], reward))
+            if len(c_points) == 0 and c_points != []:
+                self.logger.info('c_points = {}'.format(c_points))
+
         obs = None
         model = None
         while self.obj_in_queue() and obs is None and not done:
@@ -110,9 +115,8 @@ class PackingEnv(gym.Env):
 
         if model is not None and obs is not None:
             self.curr_model = model
-        elif not done:
-            done = self._check_success()
-            reward = self._compute_reward(c_points)
+        else:
+            done = True
 
         self.reward_buffer[-1] += reward
 
@@ -124,23 +128,21 @@ class PackingEnv(gym.Env):
                 success_rate = sum(self.success_buffer) / NUM_TO_CALC_SUCCESS_RATE
                 avg_reward = sum(self.reward_buffer) / NUM_TO_CALC_SUCCESS_RATE
                 if success_rate > 0.7 and self.success:
-                    self.difficulty = min(self.difficulty * 1.01, 0.9)
+                    self.difficulty = min(self.difficulty * 1.001, 0.9)
                 elif success_rate < 0.5 and self.failed:
-                    self.difficulty = max(self.difficulty * 0.99, 0.1)
+                    self.difficulty = max(self.difficulty * 0.999, 0.2)
             self.logger.info('-------------------------------------------------------------------')
             self.logger.info('env: {}, eps: {}, success rate = {}, avg reward = {}, difficulty = {}'.format(
                 self.env_index, self.eps_cnt, success_rate, avg_reward, dft))
             self.logger.info('-------------------------------------------------------------------')
             self.success_rate, self.avg_reward = success_rate, avg_reward
-            
 
-        
         info = {'info': 'hello'}
 
         return obs, reward, done, info
     
     def decode_action(self, action):
-        action_transed = [x for x in action]
+        action_transed = [x*abs(x) for x in action]
         if isinstance(self.action_space, spaces.Box):
             action_transed[0] = action_transed[0] * self.box_size[0] / 2 + self.center_xy[0]
             action_transed[1] = action_transed[1] * self.box_size[1] / 2 + self.center_xy[1] # 2 because [-1, 1]
@@ -226,13 +228,10 @@ class PackingEnv(gym.Env):
     def _compute_reward(self, collision_points=[]):
         if self.failed:
             r = -1 + self.volume_sum / self.box_volume
-        elif collision_points != []:
-            r = -1 + self.volume_sum / self.box_volume
-        elif self.success:
-            r = self.volume_sum / self.box_volume
+        elif len(collision_points) > 1:
+            r = (-1 + self.volume_sum / self.box_volume) / 10
         else:
             r = self.volume_sum / self.box_volume
-        
         return r
 
     def prepare_objects(self):
