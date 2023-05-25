@@ -26,7 +26,8 @@ class GeometryConverter(object):
             self.logger.warn('get_voxel_from_cloud only support o3d cloud')
             return None
 
-    def get_view_from_voxel(self, voxel, pixel_size, width, tar_center=[0,0,0], far_flat=1.0, axis='z'):
+    def get_view_from_voxel(
+            self, voxel, pixel_size, width, tar_center=[0,0,0], far_flat=1.0, axis='z', x_rev=False, y_rev=False):
         axis_map = {'x': 0, 'y':1, 'z':2, '-x': 0, '-y':1, '-z':2}
         # max_b, min_b = voxel.get_max_bound(), voxel.get_min_bound()
         # vl, img_l = np.linalg.norm(max_b - min_b), pow(2 * pow(pixel_size * width, 2), 0.5)
@@ -42,24 +43,27 @@ class GeometryConverter(object):
         axis_indx = axis_map[axis]
         ax = -1 if '-' in axis else 1
 
+        x_rev_factor = -1 if x_rev else 1
+        y_rev_factor = -1 if y_rev else 1
+
         if axis == 'x':
-            x_indx = lambda v: int((-1*v[1] / pixel_size + width / 2))
-            y_indx = lambda v: int((-1*v[2] / pixel_size + width / 2))
+            x_indx = lambda v: round((x_rev_factor * -1*v[1] / pixel_size + width / 2))
+            y_indx = lambda v: round((y_rev_factor * -1*v[2] / pixel_size + width / 2))
         elif axis == '-x':
-            x_indx = lambda v: int((v[1] / pixel_size + width / 2))
-            y_indx = lambda v: int((-1*v[2] / pixel_size + width / 2))
+            x_indx = lambda v: round((x_rev_factor * v[1] / pixel_size + width / 2))
+            y_indx = lambda v: round((y_rev_factor * -1*v[2] / pixel_size + width / 2))
         elif axis == 'y':
-            x_indx = lambda v: int((v[0] / pixel_size + width / 2))
-            y_indx = lambda v: int((-1*v[2] / pixel_size + width / 2))
+            x_indx = lambda v: round((x_rev_factor * v[0] / pixel_size + width / 2))
+            y_indx = lambda v: round((y_rev_factor * -1*v[2] / pixel_size + width / 2))
         elif axis == '-y':
-            x_indx = lambda v: int((-1*v[0] / pixel_size + width / 2))
-            y_indx = lambda v: int((-1*v[2] / pixel_size + width / 2))
+            x_indx = lambda v: round((x_rev_factor * -1*v[0] / pixel_size + width / 2))
+            y_indx = lambda v: round((y_rev_factor * -1*v[2] / pixel_size + width / 2))
         elif axis == 'z':
-            x_indx = lambda v: int((v[1] / pixel_size + width / 2))
-            y_indx = lambda v: int((-1*v[0] / pixel_size + width / 2))
+            x_indx = lambda v: round((x_rev_factor * v[1] / pixel_size + width / 2))
+            y_indx = lambda v: round((y_rev_factor * -1*v[0] / pixel_size + width / 2))
         elif axis == '-z':
-            x_indx = lambda v: int((-1*v[1] / pixel_size + width / 2))
-            y_indx = lambda v: int((-1*v[0] / pixel_size + width / 2))
+            x_indx = lambda v: round((x_rev_factor * -1*v[1] / pixel_size + width / 2))
+            y_indx = lambda v: round((y_rev_factor * -1*v[0] / pixel_size + width / 2))
 
         for v in tar_size_voxel:
             x_idx, y_idx = x_indx(v), y_indx(v)
@@ -73,6 +77,7 @@ class GeometryConverter(object):
 
     def get_3_views_from_voxel(self, voxel, pixel_size, width, tar_center=[0, 0, 0], far_flat=1.0, axis=['x', 'y', 'z']):
         views = []
+        x_rev=y_rev=False
         for ax in axis:
             if ax == 'x':
                 center = [tar_center[0] - far_flat / 2, tar_center[1], tar_center[2]]
@@ -84,10 +89,11 @@ class GeometryConverter(object):
                 center = [tar_center[0], tar_center[1] + far_flat / 2, tar_center[2]]
             elif ax == 'z':
                 center = [tar_center[0], tar_center[1], tar_center[2] - far_flat / 2]
+                x_rev = True
             elif ax == '-z':
                 center = [tar_center[0], tar_center[1], tar_center[2] + far_flat / 2]
 
-            view = self.get_view_from_voxel(voxel, pixel_size, width, center, far_flat, ax)
+            view = self.get_view_from_voxel(voxel, pixel_size, width, center, far_flat, ax, x_rev, y_rev)
             if view is None:
                 return None
             views.append(view)
@@ -99,11 +105,11 @@ class GeometryConverter(object):
         merged_cloud = o3d.geometry.PointCloud(o3d_points)
         return merged_cloud
 
-    def cloud_rotate_euler(self, cloud, euler, center=None):
+    def geometry_rotate_euler(self, obj, euler, center=None):
         rot_mat = o3d.geometry.get_rotation_matrix_from_xyz(np.asarray(np.array(euler).reshape(3, 1)))
         if center is not None:
-            return cloud.rotate(rot_mat, np.reshape(center, (3,1)))
-        return cloud.rotate(rot_mat)
+            return obj.rotate(rot_mat, np.reshape(center, (3,1)))
+        return obj.rotate(rot_mat)
 
     def o3d_show(self, o3d_obj):
         o3d.visualization.draw_geometries([o3d_obj], window_name='Open3D', width=1920, height=1080, \

@@ -126,21 +126,21 @@ def main():
     # We collect 4 transitions per call to `ènv.step()`
     # and performs 2 gradient steps per call to `ènv.step()`
     # if gradient_steps=-1, then we would do 4 gradients steps per call to `ènv.step()`
-    num_cpu = 8
+    num_cpu = 11
     vec_env = SubprocVecEnv([make_env(env_index=i) for i in range(num_cpu)])
     policy_kwargs= dict(
         features_extractor_class=CombinedExtractor,
         normalize_images=False,
-        net_arch=dict(pi=[128, 128, 128], qf=[128, 128, 128]),
+        net_arch=dict(pi=[256, 256, 128, 128], qf=[128, 128, 128]),
         activation_fn=nn.LeakyReLU,
     )
     model = SAC("MultiInputPolicy", vec_env, policy_kwargs=policy_kwargs, ent_coef='auto_0.2',
-                train_freq=10, verbose=1, learning_starts=1000, learning_rate=3e-4, tensorboard_log='./log/sac_tb_log/')
+                train_freq=2, verbose=1, learning_starts=10000, learning_rate=3e-4, tensorboard_log='./log/sac_tb_log/')
     print('========================================================')
     print(model.policy)
     print('========================================================')
 
-    model.learn(total_timesteps=300_000, tb_log_name='0519', callback=TBCallback())
+    model.learn(total_timesteps=300_000, tb_log_name='0524', callback=TBCallback())
 
     obs = vec_env.reset()
     for _ in range(1000):
