@@ -47,7 +47,7 @@ class CombinedExtractor(BaseFeaturesExtractor):
                     nn.LeakyReLU(),
                     nn.Flatten(),
                 )
-            elif key == 'obj':
+            elif 'obj' in key:
                 # extractors[key] = nn.Sequential(nn.MaxPool2d(4), nn.Flatten())
                 # total_concat_size += subspace.shape[1] // 4 * subspace.shape[2] // 4
                 w = ((((s[1] + 2 - 4) // 2 + 1) - 3) + 1) - 3 + 1

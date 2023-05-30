@@ -64,7 +64,9 @@ class PackingEnv(gym.Env):
 
         self.observation_space = spaces.Dict({
             'box': spaces.Box(low=0, high=1.0, shape=(1, self.img_width, self.img_width), dtype=np.float32),
-            'obj': spaces.Box(low=0, high=1.0, shape=(3, self.img_width, self.img_width), dtype=np.float32),
+            'obj_f': spaces.Box(low=0, high=1.0, shape=(1, self.img_width, self.img_width), dtype=np.float32),
+            'obj_s': spaces.Box(low=0, high=1.0, shape=(1, self.img_width, self.img_width), dtype=np.float32),
+            'obj_b': spaces.Box(low=0, high=1.0, shape=(1, self.img_width, self.img_width), dtype=np.float32),
             'num': spaces.Box(low=0, high=1.0, shape=(1,), dtype=np.float32)
         })
 
@@ -327,7 +329,9 @@ class PackingEnv(gym.Env):
         # self.obj_views = np.append(self.obj_views, np.expand_dims(self.box_view, axis=0), axis=0)
 
         obs = {'box': [self.box_view],
-               'obj': self.obj_views,
+               'obj_f': [self.obj_views[0]],
+               'obj_s': [self.obj_views[1]],
+               'obj_b': [self.obj_views[2]],
                'num': [1.0]}
         return obs
 
