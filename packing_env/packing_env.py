@@ -283,8 +283,11 @@ class PackingEnv(gym.Env):
         return curr_model
 
     def prepare_packing_box(self):
-        box_size = np.random.uniform(BOX_BOUND[0], BOX_BOUND[1])
-        box_pos = [-1.2*box_size[0]/2, -1.2*box_size[1]/2, 0.0]
+        box_bound_factor = [(1 - self.difficulty) * (b - a) / 2 for a, b in zip(BOX_BOUND[0], BOX_BOUND[1])]
+        bb_0 = [a + b for a, b in zip(BOX_BOUND[0], box_bound_factor)]
+        bb_1 = [a - b for a, b in zip(BOX_BOUND[1], box_bound_factor)]
+        box_size = np.random.uniform(bb_0, bb_1)
+        box_pos = [-1.2*box_size[0]/2, -1.2*box_size[1]/2, 0.0]  # 1.2 is the original mesh origin
         box_id = self.bh.load_stl('packing_box_with_cover.obj', box_size, box_pos, [0, 0, 0, 1], static=True)
         return box_size, box_pos, box_id
     

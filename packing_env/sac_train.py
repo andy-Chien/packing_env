@@ -135,12 +135,12 @@ def main():
         activation_fn=nn.LeakyReLU,
     )
     model = SAC("MultiInputPolicy", vec_env, policy_kwargs=policy_kwargs, ent_coef='auto_0.2',
-                train_freq=2, verbose=1, learning_starts=10000, learning_rate=3e-4, tensorboard_log='./log/sac_tb_log/')
+                train_freq=2, verbose=1, learning_starts=10000, learning_rate=3e-4, tensorboard_log='./data/training_data/sac_log/')
     print('========================================================')
     print(model.policy)
     print('========================================================')
 
-    model.learn(total_timesteps=300_000, tb_log_name='0524', callback=TBCallback())
+    model.learn(total_timesteps=300_000, tb_log_name='0613', callback=TBCallback())
 
     obs = vec_env.reset()
     for _ in range(1000):

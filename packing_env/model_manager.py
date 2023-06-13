@@ -19,6 +19,7 @@ class ModelManager():
             model = self.__model_config_loader(model_path + '/config/' + model_name + '.yaml')
             self.models = {**self.models, **model['object_model']}
         self.loaded_models = dict()
+        self.sample_th = 0.5
         print('self.models len = {}, model_list len = {}'.format(len(self.models), len(self.model_list)))
         
     def __model_config_loader(self, path):
@@ -27,7 +28,7 @@ class ModelManager():
         return data
 
 
-    def sample_models_in_bound(self, box_size, fill_rate, min_size_rate=0.03, 
+    def sample_models_in_bound(self, box_size, fill_rate, min_size_rate=0.02, 
                                excess_tolerace=1.2, generate_box=True, max_length_rate=1):
         volume_sum = 0
         box_obj_cnt = 0
@@ -36,12 +37,13 @@ class ModelManager():
         # min_bound = np.array(bound[0])
         # max_bound = np.array(bound[1])
         # bound_size = np.absolute(max_bound - min_bound)
-        max_length = np.amax(box_size[:2]) * max_length_rate
+        max_length = np.amin(box_size) * max_length_rate
         bound_volume = np.prod(box_size)
         print('bound_volume = {}'.format(bound_volume))
         while volume_sum < bound_volume * fill_rate and failed_cnt < 100:
             et = 999 if self.sampled_models_list is [] else excess_tolerace
-            if random_choice([True, False]) or not generate_box:
+            # if random_choice([True, False]) or not generate_box:
+            if np.random.uniform(low=0.0, high=1.0) < self.sample_th:
                 for _ in range(10):
                     model = random_choice(self.model_list)
                     if self.models[model]['max_length'] < max_length \
@@ -51,6 +53,7 @@ class ModelManager():
                         volume_sum += self.models[model]['convex_volume']
                         self.sampled_models_list.append(model)
                         failed_cnt = 0
+                        self.sample_th *= 0.99
                         break
                     else:
                         failed_cnt += 1
@@ -59,22 +62,25 @@ class ModelManager():
                 box_obj_size = np.random.uniform([min_len, min_len, min_len], [max_length, max_length, max_length])
                 box_obj_vol = np.prod(box_obj_size)
                 box_obj_max_len = np.amax(box_obj_size)
-                if box_obj_max_len < max_length \
-                        and volume_sum + box_obj_vol \
-                        < min(bound_volume * fill_rate * et, bound_volume) \
-                        and box_obj_vol > bound_volume * min_size_rate:
-                    name = 'a_random_box_obj_' + str(box_obj_cnt)
-                    box_obj_cnt += 1
-                    self.models[name] = dict()
-                    self.models[name]['max_length'] = box_obj_max_len
-                    self.models[name]['origin_volume'] = box_obj_vol
-                    self.models[name]['convex_volume'] = box_obj_vol
-                    self.models[name]['box_size'] = box_obj_size
-                    volume_sum += box_obj_vol
-                    self.sampled_models_list.append(name)
-                    failed_cnt = 0
-                else:
-                    failed_cnt += 1
+                for _ in range(3):
+                    if box_obj_max_len < max_length \
+                            and volume_sum + box_obj_vol \
+                            < min(bound_volume * fill_rate * et, bound_volume) \
+                            and box_obj_vol > bound_volume * min_size_rate:
+                        name = 'a_random_box_obj_' + str(box_obj_cnt)
+                        box_obj_cnt += 1
+                        self.models[name] = dict()
+                        self.models[name]['max_length'] = box_obj_max_len
+                        self.models[name]['origin_volume'] = box_obj_vol
+                        self.models[name]['convex_volume'] = box_obj_vol
+                        self.models[name]['box_size'] = box_obj_size
+                        volume_sum += box_obj_vol
+                        self.sampled_models_list.append(name)
+                        failed_cnt = 0
+                        self.sample_th /= 0.99
+                        break
+                    else:
+                        failed_cnt += 1
 
         return self.sampled_models_list
     
