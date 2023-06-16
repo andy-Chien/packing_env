@@ -101,7 +101,7 @@ class TBCallback(BaseCallback):
         # Log scalar value (here a random variable)
         self.logger.record("difficulty", self.locals['env'].get_attr('difficulty', 0)[0])
         self.logger.record("avg_reward", self.locals['env'].get_attr('avg_reward', 0)[0])
-        self.logger.record("success_rate", self.locals['env'].get_attr('success_rate', 0)[0])
+        self.logger.record("fill_rate", self.locals['env'].get_attr('fill_rate', 0)[0])
         return True
 
 def make_env(env_index: int, seed: int = 0):
@@ -141,7 +141,7 @@ def main():
     print(model.policy)
     print('========================================================')
 
-    model.learn(total_timesteps=300000, tb_log_name='0612')
+    model.learn(total_timesteps=300000, tb_log_name='0615', callback=TBCallback())
 
     obs = vec_env.reset()
     for _ in range(1000):

@@ -101,7 +101,7 @@ class TBCallback(BaseCallback):
         # Log scalar value (here a random variable)
         self.logger.record("difficulty", self.locals['env'].get_attr('difficulty', 0)[0])
         self.logger.record("avg_reward", self.locals['env'].get_attr('avg_reward', 0)[0])
-        self.logger.record("success_rate", self.locals['env'].get_attr('success_rate', 0)[0])
+        self.logger.record("fill_rate", self.locals['env'].get_attr('fill_rate', 0)[0])
         return True
 
 def make_env(env_index: int, seed: int = 0):
@@ -135,12 +135,12 @@ def main():
         activation_fn=nn.LeakyReLU,
     )
     model = SAC("MultiInputPolicy", vec_env, policy_kwargs=policy_kwargs, ent_coef='auto_0.2',
-                train_freq=2, verbose=1, learning_starts=10000, learning_rate=3e-4, tensorboard_log='./data/training_data/sac_log/')
+                train_freq=2, verbose=1, learning_starts=1000, learning_rate=3e-4, tensorboard_log='./data/training_data/sac_log/')
     print('========================================================')
     print(model.policy)
     print('========================================================')
 
-    model.learn(total_timesteps=300_000, tb_log_name='0613', callback=TBCallback())
+    model.learn(total_timesteps=300_000, tb_log_name='0616', callback=TBCallback())
 
     obs = vec_env.reset()
     for _ in range(1000):

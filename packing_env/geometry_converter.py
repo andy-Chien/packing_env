@@ -47,32 +47,33 @@ class GeometryConverter(object):
         y_rev_factor = -1 if y_rev else 1
 
         if axis == 'x':
-            x_indx = lambda v: round((x_rev_factor * -1*v[1] / pixel_size + width / 2))
-            y_indx = lambda v: round((y_rev_factor * -1*v[2] / pixel_size + width / 2))
+            x_indx = lambda v: round((x_rev_factor * -1*v[2] / pixel_size + width / 2))
+            y_indx = lambda v: round((y_rev_factor * -1*v[1] / pixel_size + width / 2))
         elif axis == '-x':
-            x_indx = lambda v: round((x_rev_factor * v[1] / pixel_size + width / 2))
-            y_indx = lambda v: round((y_rev_factor * -1*v[2] / pixel_size + width / 2))
+            x_indx = lambda v: round((x_rev_factor * -1*v[2] / pixel_size + width / 2))
+            y_indx = lambda v: round((y_rev_factor * v[1] / pixel_size + width / 2))
         elif axis == 'y':
-            x_indx = lambda v: round((x_rev_factor * v[0] / pixel_size + width / 2))
-            y_indx = lambda v: round((y_rev_factor * -1*v[2] / pixel_size + width / 2))
+            x_indx = lambda v: round((x_rev_factor * -1*v[2] / pixel_size + width / 2))
+            y_indx = lambda v: round((y_rev_factor * v[0] / pixel_size + width / 2))
         elif axis == '-y':
-            x_indx = lambda v: round((x_rev_factor * -1*v[0] / pixel_size + width / 2))
-            y_indx = lambda v: round((y_rev_factor * -1*v[2] / pixel_size + width / 2))
+            x_indx = lambda v: round((x_rev_factor * -1*v[2] / pixel_size + width / 2))
+            y_indx = lambda v: round((y_rev_factor * -1*v[0] / pixel_size + width / 2))
         elif axis == 'z':
-            x_indx = lambda v: round((x_rev_factor * v[1] / pixel_size + width / 2))
-            y_indx = lambda v: round((y_rev_factor * -1*v[0] / pixel_size + width / 2))
+            x_indx = lambda v: round((x_rev_factor * -1*v[0] / pixel_size + width / 2))
+            y_indx = lambda v: round((y_rev_factor * v[1] / pixel_size + width / 2))
         elif axis == '-z':
-            x_indx = lambda v: round((x_rev_factor * -1*v[1] / pixel_size + width / 2))
-            y_indx = lambda v: round((y_rev_factor * -1*v[0] / pixel_size + width / 2))
+            x_indx = lambda v: round((x_rev_factor * -1*v[0] / pixel_size + width / 2))
+            y_indx = lambda v: round((y_rev_factor * -1*v[1] / pixel_size + width / 2))
 
         for v in tar_size_voxel:
             x_idx, y_idx = x_indx(v), y_indx(v)
             if not all([0 <= x < width for x in [x_idx, y_idx]]):
                 continue
-            val_new = max(0, (min(ax * v[axis_indx], far_flat) / far_flat))
-            val = view[y_idx, x_idx]
+            # val_new = max(0, (min(ax * v[axis_indx], far_flat) / far_flat))
+            val_new = min(ax * v[axis_indx], far_flat) / far_flat
+            val = view[x_idx, y_idx]
             if val_new < val or val <= 0.00001:
-                view[y_idx, x_idx] = val_new
+                view[x_idx, y_idx] = val_new
         return view
 
     def get_3_views_from_voxel(self, voxel, pixel_size, width, tar_center=[0, 0, 0], far_flat=1.0, axis=['x', 'y', 'z']):
@@ -89,7 +90,7 @@ class GeometryConverter(object):
                 center = [tar_center[0], tar_center[1] + far_flat / 2, tar_center[2]]
             elif ax == 'z':
                 center = [tar_center[0], tar_center[1], tar_center[2] - far_flat / 2]
-                x_rev = True
+                y_rev = True
             elif ax == '-z':
                 center = [tar_center[0], tar_center[1], tar_center[2] + far_flat / 2]
 
@@ -110,6 +111,9 @@ class GeometryConverter(object):
         if center is not None:
             return obj.rotate(rot_mat, np.reshape(center, (3,1)))
         return obj.rotate(rot_mat)
+    
+    def geometry_translate(self, obj, pos, relative=True):
+        return obj.translate(np.reshape(pos, (3,1)), relative)
 
     def o3d_show(self, o3d_obj):
         o3d.visualization.draw_geometries([o3d_obj], window_name='Open3D', width=1920, height=1080, \

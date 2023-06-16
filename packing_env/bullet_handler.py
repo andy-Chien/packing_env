@@ -17,7 +17,7 @@ class BulletHandler:
         self._setup()
 
     def _setup(self):
-        self.pb.setGravity(0,0,-10)
+        self.pb.setGravity(0,0,-20)
         self.pb.setAdditionalSearchPath(pybullet_data.getDataPath())
         self.pb.loadURDF('plane.urdf')
         if self.current_path:

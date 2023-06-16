@@ -37,18 +37,23 @@ class ModelManager():
         # min_bound = np.array(bound[0])
         # max_bound = np.array(bound[1])
         # bound_size = np.absolute(max_bound - min_bound)
-        max_length = np.amin(box_size) * max_length_rate
+        max_length = np.amax(box_size) * max_length_rate
         bound_volume = np.prod(box_size)
         print('bound_volume = {}'.format(bound_volume))
-        while volume_sum < bound_volume * fill_rate and failed_cnt < 100:
+        box_should_scale = 1.0
+        min_len = ((bound_volume * min_size_rate) ** (1 / 3)) / 2
+        # while volume_sum < bound_volume * fill_rate and failed_cnt < 300:
+        while volume_sum < bound_volume and failed_cnt < 300:
             et = 999 if self.sampled_models_list is [] else excess_tolerace
             # if random_choice([True, False]) or not generate_box:
-            if np.random.uniform(low=0.0, high=1.0) < self.sample_th:
+            if np.random.uniform(low=0.0, high=1.0) < self.sample_th or not generate_box:
                 for _ in range(10):
                     model = random_choice(self.model_list)
+                    # if self.models[model]['max_length'] < max_length \
+                    #         and volume_sum + self.models[model]['convex_volume'] \
+                    #         < min(bound_volume * fill_rate * et, bound_volume) \
+                    #         and self.models[model]['convex_volume'] > bound_volume * min_size_rate:
                     if self.models[model]['max_length'] < max_length \
-                            and volume_sum + self.models[model]['convex_volume'] \
-                            < min(bound_volume * fill_rate * et, bound_volume) \
                             and self.models[model]['convex_volume'] > bound_volume * min_size_rate:
                         volume_sum += self.models[model]['convex_volume']
                         self.sampled_models_list.append(model)
@@ -56,16 +61,21 @@ class ModelManager():
                         self.sample_th *= 0.99
                         break
                     else:
+                        if self.models[model]['max_length'] < max_length:
+                            box_should_scale *= 0.999
+                        if self.models[model]['convex_volume'] > bound_volume * min_size_rate:
+                            box_should_scale /= 0.999
                         failed_cnt += 1
             else:
-                min_len = ((bound_volume * min_size_rate) ** (1 / 3)) / 2 
-                box_obj_size = np.random.uniform([min_len, min_len, min_len], [max_length, max_length, max_length])
+                box_obj_size = np.random.uniform([min_len, min_len, min_len], [max_length / 1.3, max_length / 1.3, max_length / 1.3])
                 box_obj_vol = np.prod(box_obj_size)
                 box_obj_max_len = np.amax(box_obj_size)
                 for _ in range(3):
+                    # if box_obj_max_len < max_length \
+                    #         and volume_sum + box_obj_vol \
+                    #         < min(bound_volume * fill_rate * et, bound_volume) \
+                    #         and box_obj_vol > bound_volume * min_size_rate:
                     if box_obj_max_len < max_length \
-                            and volume_sum + box_obj_vol \
-                            < min(bound_volume * fill_rate * et, bound_volume) \
                             and box_obj_vol > bound_volume * min_size_rate:
                         name = 'a_random_box_obj_' + str(box_obj_cnt)
                         box_obj_cnt += 1
@@ -81,8 +91,9 @@ class ModelManager():
                         break
                     else:
                         failed_cnt += 1
-
-        return self.sampled_models_list
+        if not failed_cnt < 300:
+            self.sampled_models_list = []
+        return self.sampled_models_list, min(max(box_should_scale, 0.95), 1/0.95)
     
     def reset(self):
         self.loaded_models = dict()
@@ -120,7 +131,10 @@ class ModelManager():
         return np.random.uniform(low=bound[0], high=bound[1])
 
     def random_quat(self, range=1.0):
-        return pb.getQuaternionFromEuler(np.random.uniform(low=-1*range*np.pi, high=range*np.pi, size=3))
+        euler = np.array([0.0, 0.0, 0.0])
+        euler[:2] = np.random.uniform(low=-1*range*np.pi, high=range*np.pi, size=2)
+        euler[2] = np.random.uniform(low=-1*np.pi, high=np.pi)
+        return pb.getQuaternionFromEuler(euler)
 
     def set_model_pos(self, model, pos):
         # pb.resetBasePositionAndOrientation(self.loaded_models[model], pos, [0,0,0,1])
