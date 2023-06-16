@@ -333,6 +333,8 @@ class PackingEnv(gym.Env):
             r -= (1 - fill_rate) * avg_var
         r -= (1 - fill_rate) * ((np.linalg.norm(pos_dif) / self.bound_size)**2)
         print("pos dif rate = {}".format((np.linalg.norm(pos_dif) / self.bound_size)**2))
+        r *= 10
+        r = r + 1 if r > 0 else r - 1
         return r
 
     def prepare_objects(self):
