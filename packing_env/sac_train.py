@@ -140,7 +140,7 @@ def main():
     print(model.policy)
     print('========================================================')
 
-    model.learn(total_timesteps=300_000, tb_log_name='0616', callback=TBCallback())
+    model.learn(total_timesteps=300_000, tb_log_name='0617', callback=TBCallback())
 
     obs = vec_env.reset()
     for _ in range(1000):
