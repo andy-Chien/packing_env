@@ -126,7 +126,7 @@ def main():
     # We collect 4 transitions per call to `ènv.step()`
     # and performs 2 gradient steps per call to `ènv.step()`
     # if gradient_steps=-1, then we would do 4 gradients steps per call to `ènv.step()`
-    num_cpu = 11
+    num_cpu = 6
     vec_env = SubprocVecEnv([make_env(env_index=i) for i in range(num_cpu)])
     policy_kwargs= dict(
         features_extractor_class=CombinedExtractor,
@@ -140,7 +140,7 @@ def main():
     print(model.policy)
     print('========================================================')
 
-    model.learn(total_timesteps=300_000, tb_log_name='0616', callback=TBCallback())
+    model.learn(total_timesteps=300_000, tb_log_name='quaternion_with_update_so_many_and_shifted_reward_0.1', callback=TBCallback())
 
     obs = vec_env.reset()
     for _ in range(1000):

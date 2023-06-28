@@ -60,7 +60,7 @@ class PackingEnv(gym.Env):
             self.action_space = spaces.MultiDiscrete(
                 [xy_action_space, xy_action_space, rot_action_space])
         else:
-            self.action_space = spaces.Box(-1, 1, (3,))
+            self.action_space = spaces.Box(-1, 1, (4,))
 
         self.observation_space = spaces.Dict({
             'box': spaces.Box(low=0, high=1.0, shape=(1, self.img_width, self.img_width), dtype=np.float32),
@@ -72,7 +72,7 @@ class PackingEnv(gym.Env):
         self.box_bound = np.array(BOX_BOUND)
         self.success_buffer = []
         self.reward_buffer = []
-        self.difficulty = 0.4
+        self.difficulty = 0.32
         self.center_xy = [0, 0]
         self.eps_cnt = 0
         self.success_rate = 0.0
@@ -196,17 +196,20 @@ class PackingEnv(gym.Env):
         return obs, reward, done, info
     
     def decode_action(self, action):
-        action_transed = [x for x in action] # [x*abs(x) for x in action]
+        action_transed = [0.0] * 3 # [x*abs(x) for x in action]
         if isinstance(self.action_space, spaces.Box):
-            action_transed[0] = action_transed[0] * self.box_size[0] / 2 + self.center_xy[0]
-            action_transed[1] = action_transed[1] * self.box_size[1] / 2 + self.center_xy[1] # 2 because [-1, 1]
-            action_transed[2] *= np.pi
+            action_transed[0] = action[0] * self.box_size[0] / 2 + self.center_xy[0]
+            action_transed[1] = action[1] * self.box_size[1] / 2 + self.center_xy[1] # 2 because [-1, 1]
+            ql = (action[2]**2 + action[3]**2)**0.5
+            qw = action[2] / ql if ql > 0.0001 else 1.
+            qz = action[3] / ql if ql > 0.0001 else 0.
+            action_transed[2] = qtn.as_rotation_vector(qtn.quaternion(qw, 0., 0., qz))[2]
         elif isinstance(self.action_space, spaces.MultiDiscrete):
             action_transed[0] -= self.xy_action_space / 2
             action_transed[1] -= self.xy_action_space / 2
             action_transed[2] -= self.rot_action_space / 2
-            action_transed[0] = action_transed[0] * self.box_size[0] / self.xy_action_space + self.center_xy[0]
-            action_transed[1] = action_transed[1] * self.box_size[1] / self.xy_action_space + self.center_xy[1]
+            action_transed[0] = action[0] * self.box_size[0] / self.xy_action_space + self.center_xy[0]
+            action_transed[1] = action[1] * self.box_size[1] / self.xy_action_space + self.center_xy[1]
             action_transed[2] *= np.pi / self.rot_action_space
         return action_transed
     
@@ -330,8 +333,8 @@ class PackingEnv(gym.Env):
             r = fill_rate
         if particle_var is not None:
             avg_var =  np.average(particle_var, weights=np.array([1, 1, 1]))
-            r -= (1 - fill_rate) * avg_var
-        r -= (1 - fill_rate) * ((np.linalg.norm(pos_dif) / self.bound_size)**2)
+            r -= (1 - fill_rate) * (avg_var - 0.1)
+        r -= (1 - fill_rate) * ((((np.linalg.norm(pos_dif)) / self.bound_size)**2) - 0.1)
         print("pos dif rate = {}".format((np.linalg.norm(pos_dif) / self.bound_size)**2))
         return r
 
