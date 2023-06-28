@@ -107,7 +107,7 @@ class TrainingCallback(BaseCallback):
         self.model = model
         self.model_name = type(model).__name__
         print('self.model_name = {}'.format(self.model_name))
-        self.ath_difficulty = 0.32
+        self.ath_difficulty = 0.35
 
     def _on_step(self) -> bool:
         # Log scalar value (here a random variable)
