@@ -34,8 +34,8 @@ class PackingEnv(gym.Env):
             random_start: bool = True,
             discrete_actions: bool = False,
             channel_last: bool = True,
-            xy_action_space: int = 64,
-            rot_action_space: int = 72,
+            xy_action_space: int = 32,
+            rot_action_space: int = 36,
             bullet_gui: bool = False,
             env_index: int = 0,
         ):
@@ -95,10 +95,15 @@ class PackingEnv(gym.Env):
         check_z_c = self.bh.get_closest_points(self.box_id, self.mm.get_model_id(self.curr_model))
         if len(check_z_c) > 1:
             self.mm.set_model_pos(self.curr_model, [action_transed[0], action_transed[1], z_to_place + 0.05])
-        self.bh.step_simulation(60, realtime=self.env_index==0)
 
-        obj_pos, _ = self.mm.get_model_pose(self.curr_model)
+        rot_z = 0.0
+        if 'random_box' in self.curr_model:
+            rot_z = self.mm.get_model_rot_z(self.curr_model)
+        self.bh.step_simulation(60, realtime=self.env_index==0)
+        obj_pos_begin, obj_ori_begin = self.mm.get_model_pose(self.curr_model)
+
         self.bh.step_simulation(240, realtime=False)
+        obj_pos_after, obj_ori_after = self.mm.get_model_pose(self.curr_model)
         self.bh.set_model_pose(self.box_id, self.box_pos, [0,0,0,1])
         self.bh.step_simulation(60, realtime=False)
 
@@ -154,11 +159,11 @@ class PackingEnv(gym.Env):
                 # print("particle_var = {}, min_value = {}, max_value = {}".format(particle_var, min_value, max_value))
                 particle_var /= np.array([max(x, 1.0) for x in ((the_size / 2)**2 - cube_voxel_var)])
 
+        done = self._check_success(obj_pos_begin, min_value)
+
         fill_rate = self.volume_sum / self.box_volume
-        done = self._check_success(obj_pos, min_value)
-        obj_pos, _ = self.mm.get_model_pose(self.curr_model)
-        pos_dif = np.array([a - b for a, b in zip(obj_pos[:2], action_transed[:2])])
-        reward = self._compute_reward(c_points, particle_var, fill_rate, pos_dif)
+        pos_dif = np.array([a - b for a, b in zip(obj_pos_after[:2], action_transed[:2])])
+        reward = self._compute_reward(c_points, particle_var, fill_rate, pos_dif, rot_z)
 
 
         if self.env_index == 0 and not done:
@@ -323,19 +328,33 @@ class PackingEnv(gym.Env):
 
         return self.is_done()
 
-    def _compute_reward(self, collision_points=[], particle_var=None, fill_rate=0, pos_dif=0):
+    def _compute_reward(self, collision_points=[], particle_var=None, fill_rate=0, pos_dif=0, rot_z=0):
+        factor = 0
         if self.failed:
-            r = 2 * (-1 + fill_rate)
+            r = 10 * (-1 + fill_rate)
         elif len(collision_points) > 1 and self.obj_in_wall > 0.01:
             factor = min((self.obj_in_wall - 0.01) / 0.2, 1.0) / 10
             r = (-1 + fill_rate) * factor
         else:
             r = fill_rate
+
+        # =========== For SAC 0.1 ============
         if particle_var is not None:
             avg_var =  np.average(particle_var, weights=np.array([1, 1, 1]))
             r -= (1 - fill_rate) * (avg_var - 0.1)
         r -= (1 - fill_rate) * ((((np.linalg.norm(pos_dif)) / self.bound_size)**2) - 0.1)
         print("pos dif rate = {}".format((np.linalg.norm(pos_dif) / self.bound_size)**2))
+        # =========== END For SAC 0.1 ============
+
+
+        # =========== For PPO 0.1 ============
+        abs_z = abs(rot_z)
+        min_ang = min(abs_z, abs(abs_z - np.pi/2), abs(abs_z - np.pi))
+        r -= min_ang * 0.5
+        # =========== END For PPO 0.1 ============
+
+        print("factor = {}, avg_var = {}, pos dif rate = {}, min_ang = {}".format(factor, avg_var, np.linalg.norm(pos_dif) / self.bound_size, min_ang))
+
         return r
 
     def prepare_objects(self):

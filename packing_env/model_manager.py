@@ -4,6 +4,7 @@ import pybullet as pb
 import quaternion as qtn
 from random import choice as random_choice
 from yaml import safe_load as yaml_load
+from math import atan2
 # from packing_env import BulletHandler
 
 
@@ -175,4 +176,11 @@ class ModelManager():
     
     def get_model_convex_volume(self, model):
         return self.models[model]['convex_volume']
+    
+    def get_model_rot_z(self, model):
+        _, q = self.bh.get_model_pose(self.loaded_models[model])
+        m = np.reshape(pb.getMatrixFromQuaternion(q), (3,3))
+        axis = np.argmin(m[2])
+        v = np.transpose(m)[axis]
+        return atan2(v[1], v[0])
 
