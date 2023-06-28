@@ -34,8 +34,8 @@ class PackingEnv(gym.Env):
             random_start: bool = True,
             discrete_actions: bool = False,
             channel_last: bool = True,
-            xy_action_space: int = 64,
-            rot_action_space: int = 72,
+            xy_action_space: int = 32,
+            rot_action_space: int = 36,
             bullet_gui: bool = False,
             env_index: int = 0,
         ):
@@ -72,7 +72,7 @@ class PackingEnv(gym.Env):
         self.box_bound = np.array(BOX_BOUND)
         self.success_buffer = []
         self.reward_buffer = []
-        self.difficulty = 0.4
+        self.difficulty = 0.32
         self.center_xy = [0, 0]
         self.eps_cnt = 0
         self.success_rate = 0.0
@@ -326,8 +326,9 @@ class PackingEnv(gym.Env):
         return self.is_done()
 
     def _compute_reward(self, collision_points=[], particle_var=None, fill_rate=0, pos_dif=0, rot_z=0):
+        factor = 0
         if self.failed:
-            r = 2 * (-1 + fill_rate)
+            r = 10 * (-1 + fill_rate)
         elif len(collision_points) > 1 and self.obj_in_wall > 0.01:
             factor = min((self.obj_in_wall - 0.01) / 0.2, 1.0) / 10
             r = (-1 + fill_rate) * factor
@@ -335,12 +336,12 @@ class PackingEnv(gym.Env):
             r = fill_rate
         if particle_var is not None:
             avg_var =  np.average(particle_var, weights=np.array([1, 1, 1]))
-            r -= (1 - fill_rate) * avg_var
-        r -= (1 - fill_rate) * ((np.linalg.norm(pos_dif) / self.bound_size)**2)
+            # r -= (1 - fill_rate) * avg_var
+        # r -= (1 - fill_rate) * ((np.linalg.norm(pos_dif) / self.bound_size)**2)
         abs_z = abs(rot_z)
         min_ang = min(abs_z, abs(abs_z - np.pi/2), abs(abs_z - np.pi))
         r -= min_ang * 0.5
-        print("pos dif rate = {}, min_ang = {}".format((np.linalg.norm(pos_dif) / self.bound_size)**2, min_ang))
+        print("factor = {}, avg_var = {}, pos dif rate = {}, min_ang = {}".format(factor, avg_var, np.linalg.norm(pos_dif) / self.bound_size, min_ang))
 
         return r
 

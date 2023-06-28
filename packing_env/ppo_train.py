@@ -113,7 +113,7 @@ def make_env(env_index: int, seed: int = 0):
     :param env_index: index of the subprocess
     """
     def _init():
-        env = PackingEnv(env_index=env_index, discrete_actions=False, bullet_gui=(env_index==0))
+        env = PackingEnv(env_index=env_index, discrete_actions=True, bullet_gui=(env_index==0))
         env.reset(seed=seed + env_index)
         return env
     set_random_seed(seed)
@@ -126,7 +126,7 @@ def main():
     # We collect 4 transitions per call to `ènv.step()`
     # and performs 2 gradient steps per call to `ènv.step()`
     # if gradient_steps=-1, then we would do 4 gradients steps per call to `ènv.step()`
-    num_cpu = 11
+    num_cpu = 15
     vec_env = SubprocVecEnv([make_env(env_index=i) for i in range(num_cpu)])
     policy_kwargs= dict(
         features_extractor_class=CombinedExtractor,
@@ -135,13 +135,13 @@ def main():
         activation_fn=nn.LeakyReLU,
     )
     model = PPO("MultiInputPolicy", vec_env, policy_kwargs=policy_kwargs,
-                verbose=1, learning_rate=1e-3, n_steps=16, batch_size=512,
+                verbose=1, learning_rate=3e-4, n_steps=16, batch_size=512,
                 tensorboard_log='./data/training_data/ppo_log/')
     print('========================================================')
     print(model.policy)
     print('========================================================')
 
-    model.learn(total_timesteps=300000, tb_log_name='0615', callback=TBCallback())
+    model.learn(total_timesteps=500_000, tb_log_name='0622', callback=TBCallback())
 
     obs = vec_env.reset()
     for _ in range(1000):
