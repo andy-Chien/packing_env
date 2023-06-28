@@ -36,6 +36,7 @@ setup(
             'env_checker = packing_env.env_checker:main',
             'sac_train = packing_env.sac_train:main',
             'ppo_train = packing_env.ppo_train:main',
+            'packing_policy = packing_env.packing_policy:main',
         ],
     },
 )
