@@ -180,7 +180,7 @@ class ModelManager():
     def get_model_rot_z(self, model):
         _, q = self.bh.get_model_pose(self.loaded_models[model])
         m = np.reshape(pb.getMatrixFromQuaternion(q), (3,3))
-        axis = np.argmin(m[2])
+        axis = np.argmin(np.abs(m[2]))
         v = np.transpose(m)[axis]
         return atan2(v[1], v[0])
 
