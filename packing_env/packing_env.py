@@ -331,7 +331,7 @@ class PackingEnv(gym.Env):
     def _compute_reward(self, collision_points=[], particle_var=None, fill_rate=0, pos_dif=0, rot_z=0):
         factor = 0
         if self.failed:
-            r = 10 * (-1 + fill_rate)
+            r = 3 * (-1 + fill_rate)
         elif len(collision_points) > 1 and self.obj_in_wall > 0.01:
             factor = min((self.obj_in_wall - 0.01) / 0.2, 1.0) / 10
             r = (-1 + fill_rate) * factor
@@ -341,8 +341,16 @@ class PackingEnv(gym.Env):
         # =========== For SAC 0.1 ============
         if particle_var is not None:
             avg_var =  np.average(particle_var, weights=np.array([1, 1, 1]))
-            r -= (1 - fill_rate) * (avg_var - 0.1)
-        r -= (1 - fill_rate) * ((((np.linalg.norm(pos_dif)) / self.bound_size)**2) - 0.1)
+            var_factor = avg_var - 0.1
+            if var_factor < 0:
+                r -= fill_rate * var_factor
+            else:
+                r -= (1 - fill_rate) * var_factor
+        pos_factor = ((((np.linalg.norm(pos_dif)) / self.bound_size)**2) - 0.05)
+        if pos_factor < 0:
+            r -= fill_rate * pos_factor
+        else:
+            r -= (1 - fill_rate) * pos_factor
         print("pos dif rate = {}".format((np.linalg.norm(pos_dif) / self.bound_size)**2))
         # =========== END For SAC 0.1 ============
 
@@ -350,7 +358,11 @@ class PackingEnv(gym.Env):
         # =========== For PPO 0.1 ============
         abs_z = abs(rot_z)
         min_ang = min(abs_z, abs(abs_z - np.pi/2), abs(abs_z - np.pi))
-        r -= min_ang * 0.5
+        ang_factor = (min_ang - 0.2) * 0.5
+        if ang_factor < 0:
+            r -= fill_rate * ang_factor
+        else:
+            r -= (1 - fill_rate) * ang_factor
         # =========== END For PPO 0.1 ============
 
         print("factor = {}, avg_var = {}, pos dif rate = {}, min_ang = {}".format(factor, avg_var, np.linalg.norm(pos_dif) / self.bound_size, min_ang))
