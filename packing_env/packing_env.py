@@ -81,7 +81,7 @@ class PackingEnv(gym.Env):
         self.fill_rate = 0
 
     def step(self, action):
-        action_transed = self.decode_action(action)
+        action_transed = self.decode_action(np.array(action, dtype=np.float32))
         z_to_place, z_in_box = self.compute_place_z(action_transed)
         self.mm.set_model_pos(self.curr_model, [action_transed[0], action_transed[1], z_in_box])
         self.mm.set_model_relative_euler(self.curr_model, [0, 0, action_transed[2]])
@@ -210,12 +210,12 @@ class PackingEnv(gym.Env):
             qz = action[3] / ql if ql > 0.0001 else 0.
             action_transed[2] = qtn.as_rotation_vector(qtn.quaternion(qw, 0., 0., qz))[2]
         elif isinstance(self.action_space, spaces.MultiDiscrete):
-            action_transed[0] -= self.xy_action_space / 2
-            action_transed[1] -= self.xy_action_space / 2
-            action_transed[2] -= self.rot_action_space / 2
+            action[0] -= self.xy_action_space / 2
+            action[1] -= self.xy_action_space / 2
+            action[2] -= self.rot_action_space / 2
             action_transed[0] = action[0] * self.box_size[0] / self.xy_action_space + self.center_xy[0]
             action_transed[1] = action[1] * self.box_size[1] / self.xy_action_space + self.center_xy[1]
-            action_transed[2] *= np.pi / self.rot_action_space
+            action_transed[2] = action[2] * 2 * np.pi / self.rot_action_space
         return action_transed
     
     def compute_place_z(self, action):
