@@ -17,11 +17,11 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 # np.set_printoptions(threshold=np.inf)
 
 
-MODEL = PPO
-TRAINING_MODEL_NAME = 'quaternion_with_update_so_many_and_shifted_reward_0.1_discrete_action'
+MODEL = SAC
+TRAINING_MODEL_NAME = 'full_reward'
 LOADING_MODEL_NAME = ''
 LOAT_MODEL = False
-DISCRETE_ACTIONS = True
+DISCRETE_ACTIONS = False
 NUM_CPU = 6
 
 class CombinedExtractor(BaseFeaturesExtractor):
