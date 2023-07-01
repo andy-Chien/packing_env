@@ -341,11 +341,11 @@ class PackingEnv(gym.Env):
         # =========== For SAC 0.1 ============
         if particle_var is not None:
             avg_var =  np.average(particle_var, weights=np.array([1, 1, 1]))
-            var_factor = avg_var - 0.1
-            if var_factor < 0:
-                r -= fill_rate * var_factor
-            else:
-                r -= (1 - fill_rate) * var_factor
+            # var_factor = avg_var - 0.1
+            # if var_factor < 0:
+            #     r -= fill_rate * var_factor
+            # else:
+            #     r -= (1 - fill_rate) * var_factor
         pos_factor = ((((np.linalg.norm(pos_dif)) / self.bound_size)**2) - 0.05)
         if pos_factor < 0:
             r -= fill_rate * pos_factor
