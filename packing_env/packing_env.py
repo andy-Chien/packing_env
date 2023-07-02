@@ -331,21 +331,25 @@ class PackingEnv(gym.Env):
     def _compute_reward(self, collision_points=[], particle_var=None, fill_rate=0, pos_dif=0, rot_z=0):
         factor = 0
         if self.failed:
-            r = 3 * (-1 + fill_rate)
-        elif len(collision_points) > 1 and self.obj_in_wall > 0.01:
-            factor = min((self.obj_in_wall - 0.01) / 0.2, 1.0) / 10
-            r = (-1 + fill_rate) * factor
+            if fill_rate > self.difficulty:
+                r = -3 * (1 - fill_rate) - 1
+            else:
+                r = 3 * fill_rate + 1
         else:
-            r = fill_rate
+            r = 0.
+
+        if len(collision_points) > 1 and self.obj_in_wall > 0.01:
+            colision_factor = min((self.obj_in_wall - 0.01) / 0.2, 1.0) / 10
+            r -= (1 - fill_rate) * colision_factor
 
         # =========== For SAC 0.1 ============
         if particle_var is not None:
             avg_var =  np.average(particle_var, weights=np.array([1, 1, 1]))
-            # var_factor = avg_var - 0.1
-            # if var_factor < 0:
-            #     r -= fill_rate * var_factor
-            # else:
-            #     r -= (1 - fill_rate) * var_factor
+            var_factor = avg_var - 0.1
+            if var_factor < 0:
+                r -= fill_rate * var_factor
+            else:
+                r -= (1 - fill_rate) * var_factor
         pos_factor = ((((np.linalg.norm(pos_dif)) / self.bound_size)**2) - 0.05)
         if pos_factor < 0:
             r -= fill_rate * pos_factor
