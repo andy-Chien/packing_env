@@ -188,8 +188,8 @@ class PackingEnv(gym.Env):
                 avg_reward = sum(self.reward_buffer) / NUM_TO_CALC_SUCCESS_RATE
                 if fill_rate > self.difficulty / 0.9:
                     self.difficulty = min(self.difficulty * 1.001, 0.9)
-                elif fill_rate < self.difficulty * 0.9 and self.failed:
-                    self.difficulty = max(self.difficulty * 0.999, 0.2)
+                # elif fill_rate < self.difficulty * 0.9 and self.failed:
+                #     self.difficulty = max(self.difficulty * 0.999, 0.2)
             self.logger.info('-------------------------------------------------------------------')
             self.logger.info('env: {}, eps: {}, fill rate = {}, avg reward = {}, difficulty = {}'.format(
                 self.env_index, self.eps_cnt, fill_rate, avg_reward, dft))
