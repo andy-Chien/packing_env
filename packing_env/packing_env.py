@@ -341,34 +341,34 @@ class PackingEnv(gym.Env):
         else:
             r = fill_rate
 
-        # =========== For SAC 0.1 ============
-        if particle_var is not None:
-            avg_var =  np.average(particle_var, weights=np.array([1, 1, 1]))
-            var_factor = avg_var - 0.1
-            if var_factor < 0:
-                r -= fill_rate * var_factor
-            else:
-                r -= (1 - fill_rate) * var_factor
-        pos_factor = ((((np.linalg.norm(pos_dif)) / self.bound_size)**2) - 0.05)
-        if pos_factor < 0:
-            r -= fill_rate * pos_factor
-        else:
-            r -= (1 - fill_rate) * pos_factor
-        print("pos dif rate = {}".format((np.linalg.norm(pos_dif) / self.bound_size)**2))
-        # =========== END For SAC 0.1 ============
+        # # =========== For SAC 0.1 ============
+        # if particle_var is not None:
+        #     avg_var =  np.average(particle_var, weights=np.array([1, 1, 1]))
+        #     var_factor = avg_var - 0.1
+        #     if var_factor < 0:
+        #         r -= fill_rate * var_factor
+        #     else:
+        #         r -= (1 - fill_rate) * var_factor
+        # pos_factor = ((((np.linalg.norm(pos_dif)) / self.bound_size)**2) - 0.05)
+        # if pos_factor < 0:
+        #     r -= fill_rate * pos_factor
+        # else:
+        #     r -= (1 - fill_rate) * pos_factor
+        # print("pos dif rate = {}".format((np.linalg.norm(pos_dif) / self.bound_size)**2))
+        # # =========== END For SAC 0.1 ============
 
 
-        # =========== For PPO 0.1 ============
-        abs_z = abs(rot_z)
-        min_ang = min(abs_z, abs(abs_z - np.pi/2), abs(abs_z - np.pi))
-        ang_factor = (min_ang - 0.2) * 0.5
-        if ang_factor < 0:
-            r -= fill_rate * ang_factor
-        else:
-            r -= (1 - fill_rate) * ang_factor
-        # =========== END For PPO 0.1 ============
+        # # =========== For PPO 0.1 ============
+        # abs_z = abs(rot_z)
+        # min_ang = min(abs_z, abs(abs_z - np.pi/2), abs(abs_z - np.pi))
+        # ang_factor = (min_ang - 0.2) * 0.5
+        # if ang_factor < 0:
+        #     r -= fill_rate * ang_factor
+        # else:
+        #     r -= (1 - fill_rate) * ang_factor
+        # # =========== END For PPO 0.1 ============
 
-        print("factor = {}, avg_var = {}, pos dif rate = {}, min_ang = {}".format(factor, avg_var, np.linalg.norm(pos_dif) / self.bound_size, min_ang))
+        # print("factor = {}, avg_var = {}, pos dif rate = {}, min_ang = {}".format(factor, avg_var, np.linalg.norm(pos_dif) / self.bound_size, min_ang))
 
         return r
 
