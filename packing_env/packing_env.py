@@ -21,6 +21,7 @@ START_BOUND = [[0, 0, 1.25], [0, 0, 1.35]]
 VIEWS_PER_OBJ = 3
 CAPTURE_POS = [0, 0, 1.3]
 NUM_TO_CALC_SUCCESS_RATE = 30
+INIT_DIFFICULTY = 0.32
 
 
 class PackingEnv(gym.Env):
@@ -40,7 +41,9 @@ class PackingEnv(gym.Env):
             env_index: int = 0,
         ):
         super().__init__()
-        model_path = get_package_share_directory(MODEL_PKG)
+        self.model_pkg = MODEL_PKG
+        self.model_pkg += '_' + str(env_index)
+        model_path = get_package_share_directory(self.model_pkg)
         camera_config_path = get_package_share_directory(THIS_PKG) + '/config/bullet_camera.yaml'
         self.img_width = img_width
         self.env_index = env_index
@@ -66,13 +69,13 @@ class PackingEnv(gym.Env):
             'box': spaces.Box(low=0, high=1.0, shape=(1, self.img_width, self.img_width), dtype=np.float32),
             'obj_f': spaces.Box(low=0, high=1.0, shape=(1, self.img_width, self.img_width), dtype=np.float32),
             'obj_s': spaces.Box(low=0, high=1.0, shape=(1, self.img_width, self.img_width), dtype=np.float32),
-            'obj_b': spaces.Box(low=0, high=1.0, shape=(1, self.img_width, self.img_width), dtype=np.float32),
-            'num': spaces.Box(low=0, high=1.0, shape=(1,), dtype=np.float32)
-        })
+            'obj_b': spaces.Box(low=0, high=1.0, shape=(1, self.img_width, self.img_width), dtype=np.float32)})
+            # 'num': spaces.Box(low=0, high=1.0, shape=(1,), dtype=np.float32)
+        # })
         self.box_bound = np.array(BOX_BOUND)
         self.success_buffer = []
         self.reward_buffer = []
-        self.difficulty = 0.32
+        self.difficulty = INIT_DIFFICULTY
         self.center_xy = [0, 0]
         self.eps_cnt = 0
         self.success_rate = 0.0
@@ -187,9 +190,9 @@ class PackingEnv(gym.Env):
                 success_rate = sum(self.success_buffer) / NUM_TO_CALC_SUCCESS_RATE
                 avg_reward = sum(self.reward_buffer) / NUM_TO_CALC_SUCCESS_RATE
                 if fill_rate > self.difficulty / 0.9:
-                    self.difficulty = min(self.difficulty * 1.001, 0.9)
+                    self.difficulty = min(self.difficulty + 0.001, 0.9)
                 elif fill_rate < self.difficulty * 0.9 and self.failed:
-                    self.difficulty = max(self.difficulty * 0.999, 0.2)
+                    self.difficulty = max(self.difficulty - 0.001, INIT_DIFFICULTY)
             self.logger.info('-------------------------------------------------------------------')
             self.logger.info('env: {}, eps: {}, fill rate = {}, avg reward = {}, difficulty = {}'.format(
                 self.env_index, self.eps_cnt, fill_rate, avg_reward, dft))
@@ -442,8 +445,8 @@ class PackingEnv(gym.Env):
         obs = {'box': [self.box_view],
                'obj_f': [self.obj_views[0]],
                'obj_s': [self.obj_views[1]],
-               'obj_b': [self.obj_views[2]],
-               'num': [1.0]}
+               'obj_b': [self.obj_views[2]]}
+            #    'num': [1.0]}    
         return obs
 
     def reset(self, seed=0):

@@ -29,7 +29,7 @@ class ModelManager():
         return data
 
 
-    def sample_models_in_bound(self, box_size, fill_rate, min_size_rate=0.02, 
+    def sample_models_in_bound(self, box_size, fill_rate, min_size_rate=0.01, 
                                excess_tolerace=1.2, generate_box=True, max_length_rate=1):
         volume_sum = 0
         box_obj_cnt = 0

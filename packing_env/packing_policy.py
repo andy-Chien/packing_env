@@ -17,12 +17,13 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 # np.set_printoptions(threshold=np.inf)
 
 
-MODEL = SAC
-TRAINING_MODEL_NAME = 'full_reward'
-LOADING_MODEL_NAME = ''
-LOAT_MODEL = False
-DISCRETE_ACTIONS = False
-NUM_CPU = 6
+MODEL = PPO
+TRAINING_MODEL_NAME = 'bigger_network'
+LOADING_MODEL_NAME = 'SAC_model/bigger_network_ath.zip'
+LOAD_MODEL = False
+DISCRETE_ACTIONS = True
+NUM_CPU = 22
+ATH_DIFFICULTY = 0.34
 
 class CombinedExtractor(BaseFeaturesExtractor):
     logger = logging.get_logger('CombinedExtractor')
@@ -45,6 +46,7 @@ class CombinedExtractor(BaseFeaturesExtractor):
                 # extractors[key] = nn.Sequential(nn.MaxPool2d(4), nn.Flatten())
                 # total_concat_size += subspace.shape[1] // 4 * subspace.shape[2] // 4
                 w = ((((s[1] + 2 - 4) // 2 + 1) - 3) + 1) - 3 + 1
+                # w = (((((((s[1] + 2 - 4) // 2 + 1) - 3) + 1) - 3) + 1) - 3) + 1 - 3 + 1
                 total_concat_size += w * w * s[0] * 8
                 extractors[key] = nn.Sequential(
                     nn.Conv2d(s[0], s[0] * 8, kernel_size=4, stride=2, padding=1, groups=s[0]),
@@ -53,12 +55,17 @@ class CombinedExtractor(BaseFeaturesExtractor):
                     nn.LeakyReLU(),
                     nn.Conv2d(s[0] * 8, s[0] * 8, kernel_size=3, stride=1, padding=0, groups=s[0]),
                     nn.LeakyReLU(),
+                    # nn.Conv2d(s[0] * 8, s[0] * 8, kernel_size=3, stride=1, padding=0, groups=s[0]),
+                    # nn.LeakyReLU(),
+                    # nn.Conv2d(s[0] * 8, s[0] * 8, kernel_size=3, stride=1, padding=0, groups=s[0]),
+                    # nn.LeakyReLU(),
                     nn.Flatten(),
                 )
             elif 'obj' in key:
                 # extractors[key] = nn.Sequential(nn.MaxPool2d(4), nn.Flatten())
                 # total_concat_size += subspace.shape[1] // 4 * subspace.shape[2] // 4
                 w = ((((s[1] + 2 - 4) // 2 + 1) - 3) + 1) - 3 + 1
+                # w = (((((((s[1] + 2 - 4) // 2 + 1) - 3) + 1) - 3) + 1) - 3) + 1 - 3 + 1
                 total_concat_size += w * w * s[0] * 8
                 extractors[key] = nn.Sequential(
                     nn.Conv2d(s[0], s[0] * 8, kernel_size=4, stride=2, padding=1, groups=s[0]),
@@ -67,6 +74,10 @@ class CombinedExtractor(BaseFeaturesExtractor):
                     nn.LeakyReLU(),
                     nn.Conv2d(s[0] * 8, s[0] * 8, kernel_size=3, stride=1, padding=0, groups=s[0]),
                     nn.LeakyReLU(),
+                    # nn.Conv2d(s[0] * 8, s[0] * 8, kernel_size=3, stride=1, padding=0, groups=s[0]),
+                    # nn.LeakyReLU(),
+                    # nn.Conv2d(s[0] * 8, s[0] * 8, kernel_size=3, stride=1, padding=0, groups=s[0]),
+                    # nn.LeakyReLU(),
                     nn.Flatten(),
                 )
             elif key == "num":
@@ -102,12 +113,12 @@ class TrainingCallback(BaseCallback):
     Custom callback for plotting additional values in tensorboard.
     """
 
-    def __init__(self, model, verbose=0):
+    def __init__(self, model, ath_difficulty, verbose=0):
         super().__init__(verbose)
         self.model = model
         self.model_name = type(model).__name__
+        self.ath_difficulty = ath_difficulty
         print('self.model_name = {}'.format(self.model_name))
-        self.ath_difficulty = 0.35
 
     def _on_step(self) -> bool:
         # Log scalar value (here a random variable)
@@ -115,33 +126,36 @@ class TrainingCallback(BaseCallback):
         self.logger.record("difficulty", difficulty)
         self.logger.record("avg_reward", self.locals['env'].get_attr('avg_reward', 0)[0])
         self.logger.record("fill_rate", self.locals['env'].get_attr('fill_rate', 0)[0])
-        if difficulty > self.ath_difficulty + 0.002:
+        if difficulty > self.ath_difficulty[0] + 0.002:
             name = 'data/training_data/' + self.model_name + '_model/'
-            name += TRAINING_MODEL_NAME + '_' + str(difficulty)
-            self.ath_difficulty = difficulty
+            name += TRAINING_MODEL_NAME + '_ath'
+            self.ath_difficulty[0] = difficulty
             self.model.save(name)
         return True
     
 class PackingPolicy:
-    def __init__(self, load=False, model=SAC, discrete_actions=False, num_cpu=6):
+    def __init__(self, load=False, model=SAC, discrete_actions=False, num_cpu=6, ath_difficulty=0.32):
         self.model = model
+        self.ath_difficulty = [ath_difficulty]
+
         self.vec_env = SubprocVecEnv([self.make_env(env_index=i, discrete_actions=discrete_actions)
                                       for i in range(num_cpu)])
         policy_kwargs= dict(
             features_extractor_class=CombinedExtractor,
             normalize_images=False,
-            net_arch=dict(pi=[256, 256, 128, 128], qf=[128, 128, 128]),
+            net_arch=dict(pi=[512, 512, 512, 256, 256], qf=[512, 512, 512, 256, 256]),
             activation_fn=nn.LeakyReLU,
         )
         if load:
-            self.model = model.load(LOADING_MODEL_NAME, env=self.vec_env)
+            file_name = 'data/training_data/' + LOADING_MODEL_NAME
+            self.model = model.load(file_name, env=self.vec_env)
         elif model == SAC and not load:
             self.model = model("MultiInputPolicy", self.vec_env, policy_kwargs=policy_kwargs, ent_coef='auto_0.2',
-                        train_freq=2, verbose=1, learning_starts=1000, learning_rate=3e-4, 
+                        train_freq=2, verbose=1, learning_starts=1000, learning_rate=1e-4, 
                         tensorboard_log='./data/training_data/sac_log/')
         elif model == PPO and not load:
             self.model = model("MultiInputPolicy", self.vec_env, policy_kwargs=policy_kwargs,
-                        verbose=1, learning_rate=3e-4, n_steps=16, batch_size=512,
+                        verbose=1, learning_rate=1e-4, n_steps=128, batch_size=64,
                         tensorboard_log='./data/training_data/ppo_log/')
 
         print('========================================================')
@@ -150,15 +164,18 @@ class PackingPolicy:
 
 
     def train(self):
-
-        self.model.learn(total_timesteps=300_000, 
-                         tb_log_name=TRAINING_MODEL_NAME, 
-                         callback=TrainingCallback(self.model)
-                        )
-
+        try:
+            self.model.learn(total_timesteps=10_000_000, 
+                            tb_log_name=TRAINING_MODEL_NAME, 
+                            callback=TrainingCallback(self.model, self.ath_difficulty)
+                            )
+            return True
+        except Exception as e:
+            print(e)
+            return False
     def evaluation(self):
         obs = self.vec_env.reset()
-        for _ in range(1000):
+        for _ in range(100):
             action, _states = self.model.predict(obs)
             obs, rewards, dones, info = self.vec_env.step(action)
             # if done:
@@ -181,9 +198,26 @@ class PackingPolicy:
         set_random_seed(seed)
         return _init
 
+    def get_ath_difficulty(self):
+        return self.ath_difficulty[0]
+
 def main():
-    policy = PackingPolicy(LOAT_MODEL, MODEL, DISCRETE_ACTIONS, NUM_CPU)
-    policy.train()
+    ath_difficulty = ATH_DIFFICULTY
+    while True:
+        print('============================ construct ============================')
+        print('============================ construct ============================')
+        print('============================ construct ============================')
+        print('============================ construct ============================')
+        print('============================ construct ============================')
+        policy = PackingPolicy(LOAD_MODEL, MODEL, DISCRETE_ACTIONS, NUM_CPU, ath_difficulty)
+        print('============================ start to train ============================')
+        print('============================ start to train ============================')
+        print('============================ start to train ============================')
+        print('============================ start to train ============================')
+        print('============================ start to train ============================')
+        if policy.train():
+            break
+        ath_difficulty = policy.get_ath_difficulty() - 0.005
     policy.evaluation()
     
 
