@@ -17,12 +17,12 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 # np.set_printoptions(threshold=np.inf)
 
 
-TRAIN = False
-MODEL = PPO
-TRAINING_MODEL_NAME = 'bigger_network_only_fill_rate'
+TRAIN = True
+MODEL = SAC
+TRAINING_MODEL_NAME = 'bigger_network'
 LOADING_MODEL_NAME = 'SAC_model/bigger_network_ath.zip'
-LOAD_MODEL = False
-DISCRETE_ACTIONS = True
+LOAD_MODEL = True
+DISCRETE_ACTIONS = False
 NUM_CPU = 12
 ATH_DIFFICULTY = 0.34
 
@@ -148,8 +148,9 @@ class PackingPolicy:
             activation_fn=nn.LeakyReLU,
         )
         if load:
+            custom_obj = {'observation_space': self.vec_env.observation_space, 'action_space': self.vec_env.action_space}
             file_name = 'data/training_data/' + LOADING_MODEL_NAME
-            self.model = model.load(file_name, env=self.vec_env)
+            self.model = model.load(file_name, env=self.vec_env, custom_objects=custom_obj)
         elif model == SAC and not load:
             self.model = model("MultiInputPolicy", self.vec_env, policy_kwargs=policy_kwargs, ent_coef='auto_0.2',
                         train_freq=2, verbose=1, learning_starts=1000, learning_rate=1e-4, 
@@ -204,7 +205,7 @@ class PackingPolicy:
 
 def main():
     ath_difficulty = ATH_DIFFICULTY
-    while True and TRAIN:
+    while TRAIN:
         policy = PackingPolicy(LOAD_MODEL, MODEL, DISCRETE_ACTIONS, NUM_CPU, ath_difficulty)
         if policy.train():
             break
