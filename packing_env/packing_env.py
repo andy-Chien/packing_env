@@ -42,7 +42,7 @@ class PackingEnv(gym.Env):
         ):
         super().__init__()
         self.model_pkg = MODEL_PKG
-        self.model_pkg += '_' + str(env_index)
+        # self.model_pkg += '_' + str(env_index)
         model_path = get_package_share_directory(self.model_pkg)
         camera_config_path = get_package_share_directory(THIS_PKG) + '/config/bullet_camera.yaml'
         self.img_width = img_width
