@@ -11,19 +11,22 @@ from stable_baselines3.common.callbacks import BaseCallback
 import numpy as np
 import torch as th
 from torch import nn
+import yaml
 
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
 # np.set_printoptions(threshold=np.inf)
 
 
-TRAIN = True
-MODEL = SAC
+TRAIN = False
+MODEL = PPO
 TRAINING_MODEL_NAME = 'bigger_network'
-LOADING_MODEL_NAME = 'SAC_model/bigger_network_ath.zip'
+# LOADING_MODEL_NAME = 'SAC_model/bigger_network_399.zip'
+# LOADING_MODEL_NAME = 'PPO_model/bigger_network_ath.zip'
+LOADING_MODEL_NAME = 'PPO_model/ppo_only_fill_rate_366.zip'
 LOAD_MODEL = True
-DISCRETE_ACTIONS = False
-NUM_CPU = 12
+DISCRETE_ACTIONS = True
+NUM_CPU = 6
 ATH_DIFFICULTY = 0.34
 
 class CombinedExtractor(BaseFeaturesExtractor):
@@ -176,14 +179,53 @@ class PackingPolicy:
             print(e)
             return False
     def evaluation(self):
-        obs = self.vec_env.reset()
-        for _ in range(100):
-            action, _states = self.model.predict(obs)
-            obs, rewards, dones, info = self.vec_env.step(action)
+        ## original 
+        # obs = self.vec_env.reset()
+        # for _ in range(100):
+        #     action, _states = self.model.predict(obs)
+        #     obs, rewards, dones, info = self.vec_env.step(action)
             # if done:
             #     obs = env.reset()
             # print('obs.shape() = {}'.format(obs.shape))
             # env.render()
+
+        ## ronron
+        obs = self.vec_env.reset()
+
+        pose_diff = []
+        rotate = []
+        fill_rate = []
+        fill_rate_bounding = []
+        pose_diff.append([])
+        rotate.append([])
+        fill_rate.append([])
+        fill_rate_bounding.append([])
+
+        sum_num = 0
+        sum_max = 1000
+        while True:
+            action, _states = self.model.predict(obs)
+            obs, rewards, dones, infos = self.vec_env.step(action)
+
+            for i, info in enumerate(infos):
+                pose_diff[0].append(float(info['pose_diff']))
+                rotate[0].append(float(info['rotate']))
+                
+                if dones[i] == True:
+                    fill_rate[0].append(float(info['fill_rate']))
+                    fill_rate_bounding[0].append(float(info['fill_rate_bounding']))
+                    sum_num += 1
+            if sum_num >= sum_max:
+                break
+
+        with open('{}.yaml'.format(LOADING_MODEL_NAME.split('/')[-1]), 'w') as f:
+            data = {
+                'pose_diff' : pose_diff[0],
+                'rotate' : rotate[0],
+                'fill_rate' : fill_rate[0],
+                'fill_rate_bounding' : fill_rate_bounding[0]
+            }
+            yaml.dump(data, f)
 
     def make_env(self, env_index: int, seed: int = 0, discrete_actions=False):
         """
@@ -210,6 +252,10 @@ def main():
         if policy.train():
             break
         ath_difficulty = policy.get_ath_difficulty() - 0.005
+
+    if not TRAIN:
+        policy = PackingPolicy(LOAD_MODEL, MODEL, DISCRETE_ACTIONS, NUM_CPU, ath_difficulty)
+    
     policy.evaluation()
     
 

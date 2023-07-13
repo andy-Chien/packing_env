@@ -82,6 +82,9 @@ class PackingEnv(gym.Env):
         self.avg_reward = 0.0
         self.box_scale = 1.0
         self.fill_rate = 0
+        ##ronron
+        self.fill_rate_bounding = 0
+        self.record_list = []
 
     def step(self, action):
         action_transed = self.decode_action(np.array(action, dtype=np.float32))
@@ -112,6 +115,8 @@ class PackingEnv(gym.Env):
 
         
         self.volume_sum += self.mm.get_model_convex_volume(self.curr_model)
+        ##ronron: compute bounding box by open3d 
+        self.fill_rate_bounding += self.obj_cloud.get_minimal_oriented_bounding_box().volume() / self.box_volume
 
         obs = None
         model = None
@@ -168,6 +173,11 @@ class PackingEnv(gym.Env):
         pos_dif = np.array([a - b for a, b in zip(obj_pos_after[:2], action_transed[:2])])
         reward = self._compute_reward(c_points, particle_var, fill_rate, pos_dif, rot_z)
 
+        ##ronron: saving dataset
+        abs_z = abs(rot_z)
+        min_rot = min(abs_z, abs(abs_z - np.pi/2), abs(abs_z - np.pi))*180/np.pi
+        self.record_list = [np.linalg.norm(pos_dif), min_rot, fill_rate, self.fill_rate_bounding]
+
 
         if self.env_index == 0 and not done:
             self.logger.info('fill_rate = {}, action_transed = {}, z_to_place = {}, self.box_bound {}, particle_var =  {}, reward = {},'.format(
@@ -199,7 +209,9 @@ class PackingEnv(gym.Env):
             self.logger.info('-------------------------------------------------------------------')
             self.success_rate, self.avg_reward, self.fill_rate = success_rate, avg_reward, fill_rate
 
-        info = {'info': 'hello'}
+        # info = {'info': 'hello'}
+        ##ronron
+        info = {'pose_diff' : self.record_list[0], 'rotate': min_rot, 'fill_rate': fill_rate ,'fill_rate_bounding': self.fill_rate_bounding}
 
         return obs, reward, done, info
     
@@ -461,6 +473,8 @@ class PackingEnv(gym.Env):
             self.bound_size = max(max(self.box_size) + 0.01, max(self.box_size) * 1.1)
             self.pixel_size = self.bound_size / self.img_width
             self.volume_sum = 0
+            ##ronron
+            self.fill_rate_bounding = 0
             self.model_list, self.box_scale = self.mm.sample_models_in_bound(
                 self.box_size, fill_rate=self.difficulty, max_length_rate=(self.difficulty/2)**0.33)
 
