@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 import time
+import rclpy
+from rclpy.node import Node
+
 from gym import spaces
 from rclpy import logging
 from stable_baselines3 import SAC, PPO
@@ -14,19 +17,25 @@ from torch import nn
 import yaml
 
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+from example_interfaces.srv import AddTwoInts
+
+import ros2_numpy as rnp
+import open3d as o3d
+
 
 # np.set_printoptions(threshold=np.inf)
 
 
 TRAIN = False
+EVAL = False
 MODEL = PPO
 TRAINING_MODEL_NAME = 'bigger_network'
 # LOADING_MODEL_NAME = 'SAC_model/bigger_network_399.zip'
 # LOADING_MODEL_NAME = 'PPO_model/bigger_network_ath.zip'
-LOADING_MODEL_NAME = 'PPO_model/ppo_only_fill_rate_366.zip'
+LOADING_MODEL_NAME = 'PPO_model/ppo_406.zip'
 LOAD_MODEL = True
 DISCRETE_ACTIONS = True
-NUM_CPU = 6
+NUM_CPU = 1
 ATH_DIFFICULTY = 0.34
 
 class CombinedExtractor(BaseFeaturesExtractor):
@@ -144,6 +153,7 @@ class PackingPolicy:
 
         self.vec_env = SubprocVecEnv([self.make_env(env_index=i, discrete_actions=discrete_actions)
                                       for i in range(num_cpu)])
+        self.single_env = self.make_env(env_index=999, discrete_actions=discrete_actions)
         policy_kwargs= dict(
             features_extractor_class=CombinedExtractor,
             normalize_images=False,
@@ -244,6 +254,53 @@ class PackingPolicy:
 
     def get_ath_difficulty(self):
         return self.ath_difficulty[0]
+    
+    def get_place_pose(self, box_cloud, obj_cloud, box_size, reset):
+        obs = self.single_env.get_obs_from_point_cloud(box_cloud, obj_cloud, box_size, reset)
+        action, _ = self.model.predict(obs)
+        action_transed = self.single_env.decode_action(np.array(action, dtype=np.float32))
+        z_to_place, _ = self.compute_place_z(action_transed)
+        pose = [action_transed[0], action_transed[1], z_to_place, 0.0, 0.0, action_transed[2]]
+        return pose
+    
+class PackingService(Node):
+
+    def __init__(self, policy):
+        super().__init__('packing_service')
+        self.srv = self.create_service(AddTwoInts, 'packing_planning', self.packing_planning_callback)
+        self.policy = policy
+        self.box_size = [0.01, 0.01, 0.01]
+
+    def packing_planning_callback(self, req, res):
+        self.get_logger().info('request received')
+        box_cloud = self.cloud_msg_to_open3d(req.box_cloud)
+        obj_cloud = self.cloud_msg_to_open3d(req.obj_cloud)
+        reset = req.is_first_obj
+        if reset:
+            self.box_size = req.box_size
+        place_pose = self.policy.get_place_pose(box_cloud, obj_cloud, self.box_size, reset)
+        if place_pose is not None:
+            res.success = True
+            res.place_pose.linear.x = place_pose[0]
+            res.place_pose.linear.y = place_pose[1]
+            res.place_pose.linear.z = place_pose[2]
+            res.place_pose.angular.x = place_pose[3]
+            res.place_pose.angular.y = place_pose[4]
+            res.place_pose.angular.z = place_pose[5]
+        else:
+            res.success = False
+
+        return res
+    
+    def cloud_msg_to_open3d(self, msg):
+        pcd2 = rnp.numpify(msg)
+        points=np.zeros((pcd2.shape[0],3))
+        points[:,0] = pcd2['x']
+        points[:,1] = pcd2['y']
+        points[:,2] = pcd2['z']
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(points)
+        return pcd
 
 def main():
     ath_difficulty = ATH_DIFFICULTY
@@ -255,8 +312,15 @@ def main():
 
     if not TRAIN:
         policy = PackingPolicy(LOAD_MODEL, MODEL, DISCRETE_ACTIONS, NUM_CPU, ath_difficulty)
-    
-    policy.evaluation()
+
+    if EVAL:
+        policy.evaluation()
+    elif not TRAIN:
+        rclpy.init()
+        packing_service = PackingService(policy)
+        rclpy.spin(packing_service)
+        rclpy.shutdown()
+
     
 
 if __name__ == '__main__':

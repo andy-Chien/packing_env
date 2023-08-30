@@ -460,6 +460,53 @@ class PackingEnv(gym.Env):
                'obj_b': [self.obj_views[2]]}
             #    'num': [1.0]}    
         return obs
+    
+    def get_obs_from_point_cloud(self, box_cloud, obj_cloud, box_size, reset=False):
+        self.box_size = box_size
+        self.bound_size = max(max(self.box_size) + 0.01, max(self.box_size) * 1.1)
+        self.pixel_size = self.bound_size / self.img_width
+
+        box_voxel = self.gc.get_voxel_from_cloud(box_cloud, voxel_size=0.003)
+        tar_center = [self.center_xy[0], self.center_xy[1], self.box_size[2] * 1.1]
+        old_box_view = self.box_view.copy() if not reset else None
+        self.box_view = self.gc.get_view_from_voxel(box_voxel, self.pixel_size, self.img_width, tar_center, self.bound_size, '-z')
+        if self.box_view is None:
+            return None
+
+        if not reset:
+            for r1, r2 in zip(old_box_view, self.box_view):
+                if np.any(r1):
+                    for i in range(len(r1)):
+                        if r2[i] == 0:
+                            r2[i] = r1[i]
+
+        if SHOW_IMG:
+            plt.imshow(self.box_view, cmap='gray', vmin=0, vmax=1.0)
+            plt.show()
+
+        self.obj_cloud = obj_cloud
+        if len(self.obj_cloud.points) < 100:
+            return None
+        self.obj_voxel = self.gc.get_voxel_from_cloud(self.obj_cloud, voxel_size=0.003)
+        tar_center = list((np.array(START_BOUND[0]) + np.array(START_BOUND[1])) / 2)
+        self.obj_views = self.gc.get_3_views_from_voxel(self.obj_voxel, self.pixel_size, self.img_width, tar_center, self.bound_size)
+        if self.obj_views is None:
+            return None
+        if SHOW_IMG:
+            plt.imshow(self.obj_views[0], cmap='gray', vmin=0, vmax=1.0)
+            plt.show()
+            plt.imshow(self.obj_views[1], cmap='gray', vmin=0, vmax=1.0)
+            plt.show()
+            plt.imshow(self.obj_views[2], cmap='gray', vmin=0, vmax=1.0)
+            plt.show()
+        # self.obj_views = np.append(self.obj_views, np.expand_dims(self.box_view, axis=0), axis=0)
+
+        obs = {'box': [self.box_view],
+               'obj_f': [self.obj_views[0]],
+               'obj_s': [self.obj_views[1]],
+               'obj_b': [self.obj_views[2]]}
+            #    'num': [1.0]}    
+        return obs
 
     def reset(self, seed=0):
         self.success = False
