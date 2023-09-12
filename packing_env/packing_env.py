@@ -10,6 +10,7 @@ from matplotlib import pyplot as plt
 from ament_index_python.packages import get_package_share_directory
 from packing_env import ModelManager, SimCameraManager, BulletHandler, GeometryConverter
 # np.set_printoptions(threshold=np.inf)
+import cv2
 
 SHOW_IMG = False
 
@@ -88,7 +89,7 @@ class PackingEnv(gym.Env):
 
     def step(self, action):
         action_transed = self.decode_action(np.array(action, dtype=np.float32))
-        z_to_place, z_in_box = self.compute_place_z(action_transed)
+        z_to_place, z_in_box, _ = self.compute_place_z(action_transed)
         self.mm.set_model_pos(self.curr_model, [action_transed[0], action_transed[1], z_in_box])
         self.mm.set_model_relative_euler(self.curr_model, [0, 0, action_transed[2]])
         c_points = self.bh.get_closest_points(self.box_id, self.mm.get_model_id(self.curr_model))
@@ -233,7 +234,7 @@ class PackingEnv(gym.Env):
             action_transed[2] = action[2] * 2 * np.pi / self.rot_action_space
         return action_transed
     
-    def compute_place_z(self, action):
+    def compute_place_z(self, action, axis='z'):
         iw = self.img_width
         ps = self.pixel_size
         rotated_cloud = self.gc.geometry_rotate_euler(self.obj_cloud, [0, 0, action[2]], CAPTURE_POS)
@@ -241,7 +242,7 @@ class PackingEnv(gym.Env):
         tar_center = list((np.array(START_BOUND[0]) + np.array(START_BOUND[1])) / 2)
         tar_center = [tar_center[0], tar_center[1], tar_center[2] - self.bound_size / 2]
         obj_bottom_view = self.gc.get_view_from_voxel(
-            rotated_voxel, ps, iw, tar_center, self.bound_size, 'z', y_rev=True)
+            rotated_voxel, ps, iw, tar_center, self.bound_size, axis, y_rev=axis=='z')
         if SHOW_IMG:
             # self.gc.o3d_show(self.obj_cloud)
             # self.gc.o3d_show(rotated_cloud)
@@ -280,21 +281,25 @@ class PackingEnv(gym.Env):
         obj_in_x_wall = min(max(x_range_real - dis_to_x_wall, 0), x_range_real)
         obj_in_y_wall = min(max(y_range_real - dis_to_y_wall, 0), y_range_real)
         self.obj_in_wall = obj_in_x_wall + obj_in_y_wall
-        action[0] -= np.sign(action[0]) * obj_in_x_wall
-        action[1] -= np.sign(action[1]) * obj_in_y_wall
+        action[0] -= np.sign(action[0]) * (obj_in_x_wall / 2)
+        action[1] -= np.sign(action[1]) * (obj_in_y_wall / 2)
 
         translated_cloud = self.gc.geometry_translate(rotated_cloud, [action[0], action[1], 0])
         translated_voxel = self.gc.get_voxel_from_cloud(translated_cloud, voxel_size=0.008)
         translated_obj_bottom_view = self.gc.get_view_from_voxel(
-            translated_voxel, ps, iw, tar_center, self.bound_size, 'z', y_rev=True)
+            translated_voxel, ps, iw, tar_center, self.bound_size, axis, y_rev=True)
         if SHOW_IMG:
             plt.imshow(translated_obj_bottom_view, cmap='gray', vmin=0, vmax=1.0)
             plt.show()
 
         index_x = round(-1 * (action[0] - self.center_xy[0]) / ps + iw / 2)
         index_y = round(-1 * (action[1] - self.center_xy[1]) / ps + iw / 2)
-        box_indx_x_min, box_indx_x_max = ceil(iw / 2 - hbs[0] / ps + 3), floor(iw / 2 + hbs[0] / ps - 3)
-        box_indx_y_min, box_indx_y_max = ceil(iw / 2 - hbs[1] / ps + 3), floor(iw / 2 + hbs[1] / ps - 3)
+        box_indx_x_min, box_indx_x_max = ceil(iw / 2 - hbs[0] / ps + 10), floor(iw / 2 + hbs[0] / ps - 10)
+        box_indx_y_min, box_indx_y_max = ceil(iw / 2 - hbs[1] / ps + 10), floor(iw / 2 + hbs[1] / ps - 10)
+        if box_indx_x_min > box_indx_x_max:
+            box_indx_x_min, box_indx_x_max = box_indx_x_max, box_indx_x_min
+        if box_indx_y_min > box_indx_y_max:
+            box_indx_y_min, box_indx_y_max = box_indx_y_max, box_indx_y_min
         indx_x_min, indx_x_max = max(box_indx_x_min, index_x - x_range), min(box_indx_x_max, index_x + x_range)
         indx_y_min, indx_y_max = max(box_indx_y_min, index_y - y_range), min(box_indx_y_max, index_y + y_range)
 
@@ -317,9 +322,46 @@ class PackingEnv(gym.Env):
                 z_in_box += z_adjust
                 break
         # self.logger.info('depth_min = {}, z = {}'.format(depth_min, z))
-        
-        return z, z_in_box
-        
+        z_for_real_robot = z + 0.05 - self.box_size[2]
+        # if z_for_real_robot > 0.02:
+        #     z_for_real_robot = 0.02
+        return z, z_in_box, z_for_real_robot
+    
+    def deepest_action(self, action):
+        full = np.array(np.shape(self.box_view), dtype=np.int32)
+        middle = np.array(np.shape(self.box_view), dtype=np.int32) / 2
+        middle = np.array(middle, dtype=np.int32)
+        left_top = [0]
+        left_bottom = [0]
+        right_top = [0]
+        right_bottom = [0]
+        for i in range(middle[0]):
+            for j in range(middle[1]):
+                left_top += self.box_view[i][j]
+        for i in range(middle[0], full[0]):
+            for j in range(middle[1]):
+                left_bottom += self.box_view[i][j]
+        for i in range(middle[0]):
+            for j in range(middle[1], full[1]):
+                right_top += self.box_view[i][j]
+        for i in range(middle[0], full[0]):
+            for j in range(middle[1], full[1]):
+                right_bottom += self.box_view[i][j]
+        depth = [left_top, left_bottom, right_top, right_bottom]
+        indx = depth.index(max(depth))
+        if indx == 0:
+            action[0] = 1 * self.box_size[0] / 4
+            action[1] = -1 * self.box_size[1] / 3
+        if indx == 1:
+            action[0] = -1 * self.box_size[0] / 4
+            action[1] = -1 * self.box_size[1] / 3
+        if indx == 2:
+            action[0] = 1 * self.box_size[0] / 4
+            action[1] = 1 * self.box_size[1] / 3
+        if indx == 3:
+            action[0] = -1 * self.box_size[0] / 4
+            action[1] = 1 * self.box_size[1] / 3
+        return action
     
     def obj_in_queue(self):
         return len(self.model_list) > 0
@@ -442,7 +484,9 @@ class PackingEnv(gym.Env):
             return None
         self.obj_voxel = self.gc.get_voxel_from_cloud(self.obj_cloud, voxel_size=0.003)
         tar_center = list((np.array(START_BOUND[0]) + np.array(START_BOUND[1])) / 2)
-        self.obj_views = self.gc.get_3_views_from_voxel(self.obj_voxel, self.pixel_size, self.img_width, tar_center, self.bound_size)
+        self.obj_views = self.gc.get_3_views_from_voxel(
+            self.obj_voxel, self.pixel_size, self.img_width, 
+            tar_center, self.bound_size, y_rev_list=[False, False, True])
         if self.obj_views is None:
             return None
         if SHOW_IMG:
@@ -462,14 +506,15 @@ class PackingEnv(gym.Env):
         return obs
     
     def get_obs_from_point_cloud(self, box_cloud, obj_cloud, box_size, reset=False):
-        self.box_size = box_size
+        self.box_size = np.array(box_size)
         self.bound_size = max(max(self.box_size) + 0.01, max(self.box_size) * 1.1)
         self.pixel_size = self.bound_size / self.img_width
 
         box_voxel = self.gc.get_voxel_from_cloud(box_cloud, voxel_size=0.003)
-        tar_center = [self.center_xy[0], self.center_xy[1], self.box_size[2] * 1.1]
+        # tar_center = [self.center_xy[0], self.center_xy[1], self.box_size[2] * 1.1]
+        tar_center = [0.0, 0.0, -0.03]
         old_box_view = self.box_view.copy() if not reset else None
-        self.box_view = self.gc.get_view_from_voxel(box_voxel, self.pixel_size, self.img_width, tar_center, self.bound_size, '-z')
+        self.box_view = self.gc.get_view_from_voxel(box_voxel, self.pixel_size, self.img_width, tar_center, self.bound_size, 'z')
         if self.box_view is None:
             return None
 
@@ -488,10 +533,16 @@ class PackingEnv(gym.Env):
         if len(self.obj_cloud.points) < 100:
             return None
         self.obj_voxel = self.gc.get_voxel_from_cloud(self.obj_cloud, voxel_size=0.003)
-        tar_center = list((np.array(START_BOUND[0]) + np.array(START_BOUND[1])) / 2)
-        self.obj_views = self.gc.get_3_views_from_voxel(self.obj_voxel, self.pixel_size, self.img_width, tar_center, self.bound_size)
+        # tar_center = list((np.array(START_BOUND[0]) + np.array(START_BOUND[1])) / 2)
+        self.obj_views = self.gc.get_3_views_from_voxel(
+            self.obj_voxel, self.pixel_size, self.img_width, tar_center, 
+            self.bound_size, axis=['x', 'y', '-z'], x_rev_list=[True, True, False])
         if self.obj_views is None:
             return None
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (10, 10))
+        kernel_2 = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        for view in self.obj_views:
+            view = cv2.dilate(cv2.erode(view, kernel), kernel_2)
         if SHOW_IMG:
             plt.imshow(self.obj_views[0], cmap='gray', vmin=0, vmax=1.0)
             plt.show()

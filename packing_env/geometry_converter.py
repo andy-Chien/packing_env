@@ -76,10 +76,10 @@ class GeometryConverter(object):
                 view[x_idx, y_idx] = val_new
         return view
 
-    def get_3_views_from_voxel(self, voxel, pixel_size, width, tar_center=[0, 0, 0], far_flat=1.0, axis=['x', 'y', 'z']):
+    def get_3_views_from_voxel(self, voxel, pixel_size, width, tar_center=[0, 0, 0], far_flat=1.0, axis=['x', 'y', 'z'],
+                               x_rev_list=[False, False, False], y_rev_list=[False, False, False]):
         views = []
-        x_rev=y_rev=False
-        for ax in axis:
+        for ax, x_rev, y_rev in zip(axis, x_rev_list, y_rev_list):
             if ax == 'x':
                 center = [tar_center[0] - far_flat / 2, tar_center[1], tar_center[2]]
             elif ax == '-x':
@@ -90,7 +90,6 @@ class GeometryConverter(object):
                 center = [tar_center[0], tar_center[1] + far_flat / 2, tar_center[2]]
             elif ax == 'z':
                 center = [tar_center[0], tar_center[1], tar_center[2] - far_flat / 2]
-                y_rev = True
             elif ax == '-z':
                 center = [tar_center[0], tar_center[1], tar_center[2] + far_flat / 2]
 
@@ -102,7 +101,7 @@ class GeometryConverter(object):
 
     def merge_cloud(self, cloud_list):
         merged_points = np.concatenate([np.asarray(cloud.points) for cloud in cloud_list])
-        o3d_points = o3d.cuda.pybind.utility.Vector3dVector(merged_points)
+        o3d_points = o3d.pybind.utility.Vector3dVector(merged_points)
         merged_cloud = o3d.geometry.PointCloud(o3d_points)
         return merged_cloud
 
